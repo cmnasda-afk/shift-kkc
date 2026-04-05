@@ -100,10 +100,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .content::-webkit-scrollbar{width:2px}
 .content::-webkit-scrollbar-thumb{background:var(--border2)}
 
-/* Legacy tabs (hidden) */
-.tabs{display:none}
-.tab{display:none}
-
 /* ── DASHBOARD ───────────────────────────────────────────── */
 .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
 .kpi-card{background:var(--surface);border-radius:var(--r);padding:12px 10px;text-align:center;border:0.5px solid var(--border);box-shadow:var(--shadow)}
@@ -183,7 +179,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .session-badge{font-size:10px;padding:3px 8px;border-radius:10px;font-weight:600}
 .badge-open{background:rgba(76,175,122,0.15);color:var(--green)}
 .badge-pending{background:rgba(224,154,32,0.15);color:var(--amber)}
-.badge-done{background:rgba(76,175,122,0.15);color:var(--green)}
+
 .check-progress{height:3px;background:var(--surface3);border-radius:2px;margin:8px 0;overflow:hidden}
 .check-progress-fill{height:3px;background:var(--green);border-radius:2px;transition:width 0.3s}
 .check-session-meta{font-size:11px;color:var(--text2)}
@@ -215,7 +211,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .order-urgency{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .urgency-high{background:var(--red)}.urgency-med{background:var(--amber)}.urgency-low{background:var(--green)}
 .order-name{flex:1;font-size:13px;color:var(--text)}
-.order-suggest{font-family:var(--mono);font-size:12px;color:var(--text2)}
+
 .order-qty-input{width:72px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:13px;color:var(--text);text-align:right;font-family:var(--mono);outline:none}
 .order-qty-input:focus{border-color:var(--gold)}
 .order-summary{margin:12px;background:var(--surface);border-radius:var(--r);padding:12px 14px;border:0.5px solid var(--border)}
@@ -230,7 +226,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .setting-row input:focus{border-color:var(--gold)}
 .setting-btn{display:block;width:calc(100% - 24px);margin:6px 12px;padding:12px;border-radius:var(--r);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;text-align:center}
 .setting-btn-gold{background:var(--green);color:var(--black)}
-.setting-btn-ghost{background:var(--surface2);color:var(--text2);border:0.5px solid var(--border2)}
+
 .setting-btn-danger{background:rgba(224,85,85,0.1);color:var(--red);border:0.5px solid rgba(224,85,85,0.3)}
 
 /* ── TOAST ───────────────────────────────────────────────── */
@@ -283,7 +279,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .export-bar{display:flex;gap:8px;padding:12px;background:var(--surface);border-bottom:0.5px solid var(--border)}
 .export-btn{flex:1;padding:9px;border-radius:var(--r);font-size:12px;font-weight:500;font-family:var(--font);cursor:pointer;border:0.5px solid var(--border2);background:var(--surface2);color:var(--text)}
 .export-btn:active{background:var(--surface3)}
-.safe-bottom{padding-bottom:calc(env(safe-area-inset-bottom) + 12px)}
+
 
 /* ── PHOTO UPLOAD ────────────────────────────────────────── */
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
@@ -297,7 +293,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ── MIN STOCK BADGE ─────────────────────────────────────── */
 .min-badge{font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;margin-left:4px}
 .min-badge-warn{background:var(--amber-light);color:var(--amber)}
-.min-badge-ok{background:var(--green-light);color:var(--green)}
 
 /* ── BALANCE CARD ─────────────────────────────────────────── */
 .balance-bar{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--surface);border-bottom:0.5px solid var(--border);padding:0}
@@ -1616,12 +1611,6 @@ const MENU_RECIPES = {
   'Hot Milk':               {cat:'Non-Coffee',  priceIn:50,  priceOnline:60,  ing:{'นม Mac Milk / นมบาริสต้า (1L)':0.25}},
 };
 
-// ส่วนลด (แก้ไขได้ใน settings)
-const DEFAULT_DISCOUNTS = {
-  staff:    {pct:10, label:'พนักงาน'},
-  member:   {pct:50, label:'สมาชิกใหม่'},
-};
-
 const SALES_LS = 'shiftv3_sales';
 const DISCOUNT_LS = 'shiftv3_discounts';
 let salesLog = {};
@@ -2375,101 +2364,6 @@ function copyReport(mode,date){
   });
 }
 
-
-// ══════════════════════════════════════════════════════════
-// MANAGER — ต้นทุนและราคา (💰 ต้นทุน)
-// ══════════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════════
-// MANAGER — อนุมัติใบสั่งซื้อ (✅ อนุมัติ)
-// ══════════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════════
-// MANAGER — ACTIONS
-// ══════════════════════════════════════════════════════════
-function approveAndSendOrder(){
-  const {token,chatId}=settings;
-  if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
-  const lbn=latestByName();
-  const items=[];
-  getAllCats().forEach(cat=>cat.items.forEach(item=>{
-    const id='aq-'+item.name.replace(/\W/g,'_');
-    const el=document.getElementById(id);
-    if(!el) return;
-    const qty=parseFloat(el.value)||0;
-    if(qty>0){
-      const lastRecv=entries.filter(r=>r.name===item.name&&r.type==='receive').sort((a,b)=>b.ts-a.ts)[0];
-      items.push({name:item.name,unit:item.unit,qty,supplier:lastRecv?.supplier||'—',lastPrice:lastRecv?.pricePerUnit||'—'});
-    }
-  }));
-  if(!items.length){toast('ไม่มีรายการที่สั่ง');return;}
-
-  const dateStr=new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
-  let msg=`✅ ใบสั่งซื้อ (Manager อนุมัติ)\nSHIFT KKC · ${dateStr}\n${'='.repeat(28)}\n`;
-  const urgent=items.filter(i=>{const e=lbn[i.name];return e?.status==='out';});
-  const normal=items.filter(i=>{const e=lbn[i.name];return e?.status!=='out';});
-  if(urgent.length){msg+=`\n🔴 ด่วน:\n`;urgent.forEach(i=>{msg+=`• ${i.name}: ${i.qty} ${i.unit} (ราคาอ้างอิง: ${i.lastPrice} ฿/${i.unit})\n`;});}
-  if(normal.length){msg+=`\n🟡 ปกติ:\n`;normal.forEach(i=>{msg+=`• ${i.name}: ${i.qty} ${i.unit}\n`;});}
-  msg+=`\nรวม ${items.length} รายการ\n#order #approved #shift_kkc`;
-
-  toast('กำลังส่ง...');
-  sendTelegramMsg(msg).then(r=>{
-    if(r?.ok) toast('ส่งใบสั่งซื้อสำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
-}
-
-function sendDailySummaryTelegram(){
-  const {token,chatId}=settings;
-  if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
-  const today=todayStr();
-  const todayE=entries.filter(e=>e.date===today);
-  const lbn=latestByName();const vals=Object.values(lbn);
-  const out=vals.filter(e=>e.status==='out').length;
-  const low=vals.filter(e=>e.status==='low').length;
-  const todayRecv=todayE.filter(e=>e.type==='receive');
-  const totalCost=todayRecv.reduce((a,e)=>a+(parseFloat(e.priceTotal)||0),0);
-  const todayLoss=todayE.filter(e=>e.type==='loss');
-
-  const dateStr=new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
-  let msg=`📊 สรุปประจำวัน SHIFT KKC\n${dateStr}\n${'='.repeat(26)}\n`;
-  msg+=`\n📦 สต็อก\n`;
-  msg+=`• เช็คแล้ว: ${todayE.filter(e=>e.type==='stock').length} รายการ\n`;
-  msg+=`• ปกติ: ${vals.filter(e=>e.status==='ok').length} · น้อย: ${low} · หมด: ${out}\n`;
-  if(totalCost>0){msg+=`\n💰 ต้นทุนรับเข้าวันนี้: ${totalCost.toLocaleString('th-TH')} ฿\n`;}
-  if(todayRecv.length){msg+=`• รับของ: ${todayRecv.length} รายการ\n`;}
-  if(todayLoss.length){msg+=`• ของเสีย: ${todayLoss.length} รายการ\n`;}
-  if(out>0){msg+=`\n🔴 ต้องสั่งด่วน:\n`;vals.filter(e=>e.status==='out').slice(0,5).forEach(e=>{msg+=`• ${e.name}\n`;});}
-  msg+=`\n#daily #summary #shift_kkc`;
-
-  toast('กำลังส่ง...');
-  sendTelegramMsg(msg).then(r=>{
-    if(r?.ok) toast('ส่งสรุปวันนี้สำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ');
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
-}
-
-
-function exportOrderCSV(){
-  const rows=[['ชื่อรายการ','หน่วย','จำนวนสั่ง','ยอดคงเหลือ','ราคาล็อตก่อน','Supplier']];
-  const lbn=latestByName();
-  getAllCats().forEach(cat=>cat.items.forEach(item=>{
-    const id='aq-'+item.name.replace(/\W/g,'_');
-    const el=document.getElementById(id);
-    if(!el||!parseFloat(el.value)) return;
-    const e=lbn[item.name];
-    const lastRecv=entries.filter(r=>r.name===item.name&&r.type==='receive').sort((a,b)=>b.ts-a.ts)[0];
-    rows.push([item.name,item.unit,el.value,e?.qty||'',lastRecv?.pricePerUnit||'',lastRecv?.supplier||'']);
-  }));
-  if(rows.length<=1){toast('ไม่มีรายการ');return;}
-  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`SHIFT_KKC_Order_${todayStr()}.csv`;
-  a.click();
-  toast('Export ใบสั่งซื้อสำเร็จ');
-}
 
 function saveSettingsForm(){
   // blur ก่อนเพื่อปิด keyboard บนมือถือ
@@ -3334,14 +3228,6 @@ function toggleRevenueEdit(date){
   renderContent('mgr-revenue');
 }
 
-
-function updateRevenue(date,field,val){
-  if(!revenueLog[date])revenueLog[date]={};
-  const num=parseFloat(val);
-  revenueLog[date][field]=isNaN(num)?val:num;
-  saveRevenueLog();
-  renderContent('mgr-revenue');
-}
 
 function buildRevenueSummaryText(date){
   const r=revenueLog[date]||{};
