@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f0f4f0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.telegram.org https://script.google.com https://script.googleusercontent.com; img-src 'self' data: blob:;">
 <title>SHIFT KKC — Stock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -23,6 +24,7 @@
   --font:'Sarabun',sans-serif;--mono:'Space Mono',monospace;
   --shadow:0 1px 4px rgba(0,0,0,0.08);
   --shadow2:0 2px 12px rgba(0,0,0,0.1);
+  --gold:#b8960c;--black:#1a2a1a;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;overflow:hidden}
 .app{height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
@@ -642,6 +644,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <script>
 // ══════════════════════════════════════════════════════════
+// SECURITY HELPERS
+// ══════════════════════════════════════════════════════════
+function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
+function escAttr(s){return esc(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');}
+function lsSave(key,val){try{localStorage.setItem(key,typeof val==='string'?val:JSON.stringify(val));}catch(e){if(e.name==='QuotaExceededError')toast('พื้นที่เก็บข้อมูลเต็ม — ลบรูปหรือประวัติเก่า');}}
+async function hashPin(pin){const enc=new TextEncoder().encode(pin+'shift_kkc_salt');const buf=await crypto.subtle.digest('SHA-256',enc);return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+// ══════════════════════════════════════════════════════════
 // DATA & STORAGE
 // ══════════════════════════════════════════════════════════
 const LS = {
@@ -670,10 +680,10 @@ function load(){
   try{menuPriceOverrides=JSON.parse(localStorage.getItem(LS.menuPrices)||'{}')}catch(e){menuPriceOverrides={}}
   try{customMenus=JSON.parse(localStorage.getItem(LS.customMenus)||'[]')}catch(e){customMenus=[]}
 }
-function saveEntries(){localStorage.setItem(LS.entries,JSON.stringify(entries))}
-function saveCustom(){localStorage.setItem(LS.custom,JSON.stringify(customItems))}
-function saveSettings(){localStorage.setItem(LS.settings,JSON.stringify(settings))}
-function saveMin(){localStorage.setItem(LS.minstock,JSON.stringify(minStock))}
+function saveEntries(){lsSave(LS.entries,entries)}
+function saveCustom(){lsSave(LS.custom,customItems)}
+function saveSettings(){lsSave(LS.settings,settings)}
+function saveMin(){lsSave(LS.minstock,minStock)}
 function addHistory(entry){
   const d=todayStr();
   if(!historyData[d])historyData[d]=[];
@@ -681,7 +691,7 @@ function addHistory(entry){
   // keep 30 days
   const keys=Object.keys(historyData).sort().reverse();
   if(keys.length>30)keys.slice(30).forEach(k=>delete historyData[k]);
-  localStorage.setItem(LS.history,JSON.stringify(historyData));
+  lsSave(LS.history,historyData);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -911,13 +921,14 @@ function updatePinDots(err=false){
   }
 }
 
-function processPin(){
+async function processPin(){
   const stored=localStorage.getItem(LS.pin)||'';
   if(pinMode==='setup'){
     if(!pinPending){pinPending=pinBuf;pinBuf='';updatePinDots();
       document.getElementById('pin-subtitle').textContent='ยืนยัน PIN อีกครั้ง';return;}
     if(pinBuf===pinPending){
-      localStorage.setItem(LS.pin,pinBuf);
+      const hashed=await hashPin(pinBuf);
+      lsSave(LS.pin,hashed);
       pinPending='';toast('ตั้งค่า PIN สำเร็จ');
       if(pinSetupCallback){pinSetupCallback();pinSetupCallback=null;}
       else loginAs('manager');
@@ -930,7 +941,12 @@ function processPin(){
     }
     return;
   }
-  if(pinBuf===stored){
+  // support both legacy plaintext and hashed PIN
+  const hashed=await hashPin(pinBuf);
+  const match=(pinBuf===stored)||(hashed===stored);
+  if(match){
+    // migrate plaintext PIN to hashed
+    if(pinBuf===stored&&pinBuf.length===4)lsSave(LS.pin,hashed);
     if(window._pinSuccessCallback){
       const cb=window._pinSuccessCallback;
       window._pinSuccessCallback=null;
@@ -1044,18 +1060,18 @@ function renderDashboard(){
   // alerts
   if(expired.length>0){
     html+=`<div class="alert-strip danger"><div class="alert-title">หมดอายุแล้ว ${expired.length} รายการ</div>
-      ${expired.slice(0,3).map(e=>`<div class="alert-item">• ${e.name} (${fmt(e.expDate)})</div>`).join('')}
+      ${expired.slice(0,3).map(e=>`<div class="alert-item">• ${esc(e.name)} (${fmt(e.expDate)})</div>`).join('')}
     </div>`;
   }
   if(expiring.length>0){
     html+=`<div class="alert-strip warn"><div class="alert-title">หมดอายุใน 3 วัน — ${expiring.length} รายการ</div>
-      ${expiring.slice(0,3).map(e=>`<div class="alert-item">• ${e.name} — ${expLabel(e.expDate)}</div>`).join('')}
+      ${expiring.slice(0,3).map(e=>`<div class="alert-item">• ${esc(e.name)} — ${expLabel(e.expDate)}</div>`).join('')}
     </div>`;
   }
   if(out>0){
     const outItems=vals.filter(e=>e.status==='out');
     html+=`<div class="alert-strip danger"><div class="alert-title">หมด / ต้องสั่งด่วน ${out} รายการ</div>
-      ${outItems.slice(0,4).map(e=>`<div class="alert-item">• ${e.name}</div>`).join('')}
+      ${outItems.slice(0,4).map(e=>`<div class="alert-item">• ${esc(e.name)}</div>`).join('')}
     </div>`;
   }
 
@@ -1066,9 +1082,9 @@ function renderDashboard(){
     html+=recent.map(e=>{
       const icon=e.type==='receive'?'📦':e.type==='loss'?'🗑️':'📋';
       const statusColor=e.status==='out'?'var(--red)':e.status==='low'?'var(--amber)':'var(--green)';
-      return`<div class="stock-row" onclick="openStockDrawer('${e.name}')">
+      return`<div class="stock-row" onclick="openStockDrawer('${escAttr(e.name)}')">
         <div class="status-pill" style="background:${statusColor}"></div>
-        <div class="stock-info"><div class="stock-name">${icon} ${e.name}</div>
+        <div class="stock-info"><div class="stock-name">${icon} ${esc(e.name)}</div>
         <div class="stock-sub">${e.type==='receive'?'รับเข้า':e.type==='loss'?'บันทึกของเสีย':'เช็คสต็อก'} · ${new Date(e.ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div></div>
         <div class="stock-right"><div class="stock-qty">${e.qty||'—'}</div><div class="stock-unit">${e.unit||''}</div></div>
       </div>`;
@@ -1114,7 +1130,7 @@ function renderStock(){
 
   getAllCats().forEach(cat => {
     html += `<div class="cat-header">${cat.cat}
-      ${currentRole==='manager'?`<button class="add-item-btn" onclick="addCustomItem('${cat.cat.replace(/'/g,"\\'")}')">+ เพิ่ม</button>`:''}
+      ${currentRole==='manager'?`<button class="add-item-btn" onclick="addCustomItem('${escAttr(cat.cat)}')">+ เพิ่ม</button>`:''}
     </div>`;
 
     cat.items.forEach(item => {
@@ -1159,17 +1175,17 @@ function renderStock(){
 
       html += `<div style="border-bottom:0.5px solid var(--border)">
         <!-- name row -->
-        <div class="stock-row" style="border:none;padding-bottom:4px" onclick="openStockDrawer('${item.name.replace(/'/g,"\\'")}','${item.unit}')">
+        <div class="stock-row" style="border:none;padding-bottom:4px" onclick="openStockDrawer('${escAttr(item.name)}','${escAttr(item.unit)}')">
           <div class="status-pill ${pillClass}"></div>
           <div class="stock-info">
-            <div class="stock-name">${item.name}${minBadge}</div>
+            <div class="stock-name">${esc(item.name)}${minBadge}</div>
             <div class="stock-sub" style="${expWarnStyle}">
-              ${cur ? [expLabel(cur.expDate), cur.supplier ? '📍 '+cur.supplier : ''].filter(Boolean).join(' · ') : 'แตะเพื่อบันทึก'}
+              ${cur ? [expLabel(cur.expDate), cur.supplier ? '📍 '+esc(cur.supplier) : ''].filter(Boolean).join(' · ') : 'แตะเพื่อบันทึก'}
             </div>
           </div>
         </div>
         <!-- balance bar -->
-        <div class="balance-bar" onclick="openStockDrawer('${item.name.replace(/'/g,"\\'")}','${item.unit}')">
+        <div class="balance-bar" onclick="openStockDrawer('${escAttr(item.name)}','${escAttr(item.unit)}')">
           <div class="balance-cell prev">
             <div class="balance-cell-label">รอบก่อน</div>
             <div class="balance-cell-val">${prev ? prev.qty : '—'}</div>
@@ -1205,9 +1221,9 @@ function renderReceiveList(){
     cat.items.forEach(item=>{
       const e=lbn[item.name];
       const lastRecv=e&&e.recvDate?`รับล่าสุด ${fmt(e.recvDate)}`:'ยังไม่มีข้อมูล';
-      html+=`<div class="stock-row" onclick="openReceiveDrawer('${item.name.replace(/'/g,"\\'")}','${item.unit}')">
+      html+=`<div class="stock-row" onclick="openReceiveDrawer('${escAttr(item.name)}','${escAttr(item.unit)}')">
         <div class="stock-info">
-          <div class="stock-name">${item.name}</div>
+          <div class="stock-name">${esc(item.name)}</div>
           <div class="stock-sub">${lastRecv}</div>
         </div>
         <div style="color:var(--gold);font-size:22px;opacity:0.6">+</div>
@@ -1240,8 +1256,8 @@ function renderLossList(){
     <div class="history-entry">
       <div class="h-entry-icon">🗑️</div>
       <div class="h-entry-info">
-        <div class="h-entry-name">${e.name}</div>
-        <div class="h-entry-detail">${e.qty} ${e.unit} · ${e.lossReason||''}${e.note?' · '+e.note:''}</div>
+        <div class="h-entry-name">${esc(e.name)}</div>
+        <div class="h-entry-detail">${e.qty} ${e.unit} · ${esc(e.lossReason||'')}${e.note?' · '+esc(e.note):''}</div>
       </div>
       <div class="h-entry-time">${new Date(e.ts).toLocaleDateString('th-TH',{day:'numeric',month:'short'})}</div>
     </div>`).join('');
@@ -1288,7 +1304,7 @@ function renderOrder(){
     html+=items.map(item=>`
       <div class="order-item">
         <div class="order-urgency urgency-${item.urgency}"></div>
-        <div class="order-name">${item.name}<br><span style="font-size:10px;color:var(--text2)">${item.reason}</span></div>
+        <div class="order-name">${esc(item.name)}<br><span style="font-size:10px;color:var(--text2)">${esc(item.reason)}</span></div>
         <input class="order-qty-input" type="number" value="${item.suggest}" min="0" step="0.5" id="oq-${item.name.replace(/\W/g,'_')}">
         <span style="font-size:11px;color:var(--text2)">${item.unit}</span>
       </div>`).join('');
@@ -1330,12 +1346,12 @@ function renderHistory(){
       <div class="history-day-body">
         ${rows.map(e=>{
           const icon=e.type==='receive'?'📦':e.type==='loss'?'🗑️':'📋';
-          const detail=[e.qty?e.qty+' '+e.unit:'',e.recvDate?'รับ '+fmt(e.recvDate):'',e.expDate&&e.expDate!=='NO_EXP'?'หมด '+fmt(e.expDate):'',e.supplier||'',e.note||''].filter(Boolean).join(' · ');
+          const detail=[e.qty?e.qty+' '+e.unit:'',e.recvDate?'รับ '+fmt(e.recvDate):'',e.expDate&&e.expDate!=='NO_EXP'?'หมด '+fmt(e.expDate):'',e.supplier?esc(e.supplier):'',e.note?esc(e.note):''].filter(Boolean).join(' · ');
           const photos=e.photos?Object.values(e.photos).filter(Boolean):[];
           return`<div class="history-entry">
             <div class="h-entry-icon">${icon}</div>
             <div class="h-entry-info">
-              <div class="h-entry-name">${e.name}</div>
+              <div class="h-entry-name">${esc(e.name)}</div>
               <div class="h-entry-detail">${detail||'—'}</div>
               ${photos.length?`<div style="display:flex;gap:4px;margin-top:6px">${photos.map(p=>`<img src="${p}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border2)" onclick="viewPhoto('${p}')">`).join('')}</div>`:''}
             </div>
@@ -1393,13 +1409,13 @@ function renderSettings(){
         const displayPrice=storedPrice||(lastRecv?parseFloat(lastRecv.pricePerUnit).toFixed(2):'');
         return`<div style="border-bottom:0.5px solid var(--border)">
           <div class="setting-row" style="gap:6px;padding-bottom:4px">
-            <input type="text" value="${item.name}" id="item-name-${safeId}"
+            <input type="text" value="${escAttr(item.name)}" id="item-name-${safeId}"
               style="flex:1;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
-            <input type="text" value="${item.unit}" id="item-unit-${safeId}"
+            <input type="text" value="${escAttr(item.unit)}" id="item-unit-${safeId}"
               style="width:52px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;color:var(--text2);font-family:var(--font);outline:none">
-            <button onclick="saveItemName('${item.name.replace(/'/g,"\\'")}','${cat.cat.replace(/'/g,"\\'")}','${safeId}')"
+            <button onclick="saveItemName('${escAttr(item.name)}','${escAttr(cat.cat)}','${safeId}')"
               style="background:var(--green-light);color:var(--green);border:none;border-radius:var(--r);padding:6px 10px;font-size:12px;cursor:pointer;font-family:var(--font);white-space:nowrap">บันทึก</button>
-            ${isCustom?`<button onclick="deleteCustomItem('${item.name.replace(/'/g,"\\'")}','${cat.cat.replace(/'/g,"\\'")}',this)"
+            ${isCustom?`<button onclick="deleteCustomItem('${escAttr(item.name)}','${escAttr(cat.cat)}',this)"
               style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:6px 8px;font-size:12px;cursor:pointer">✕</button>`:''}
           </div>
           <div style="padding:0 16px 8px;display:flex;align-items:center;gap:8px">
@@ -1408,7 +1424,7 @@ function renderSettings(){
               style="width:100px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:13px;color:var(--green);font-family:var(--font);outline:none" step="0.01" min="0">
             <span style="font-size:11px;color:var(--text3)">฿ / ${item.unit}</span>
             ${lastRecv?`<span style="font-size:10px;color:var(--text3)">รับล่าสุด ${fmt(lastRecv.date)}</span>`:''}
-            <button onclick="saveItemPrice('${item.name.replace(/'/g,"\\'")}','${safeId}')"
+            <button onclick="saveItemPrice('${escAttr(item.name)}','${safeId}')"
               style="margin-left:auto;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:5px 10px;font-size:11px;cursor:pointer;font-family:var(--font)">บันทึกราคา</button>
           </div>
         </div>`;
@@ -1426,7 +1442,7 @@ function renderSettings(){
     ${(bakeryItems||[]).map((b,idx)=>`
       <div style="border-bottom:0.5px solid var(--border);padding:10px 16px">
         <div style="display:flex;gap:6px;margin-bottom:6px">
-          <input type="text" value="${b.name}" id="bk-name-${idx}"
+          <input type="text" value="${escAttr(b.name)}" id="bk-name-${idx}"
             style="flex:1;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none" placeholder="ชื่อเบเกอรี่">
           <button onclick="deleteBakery(${idx})"
             style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:6px 10px;font-size:12px;cursor:pointer">ลบ</button>
@@ -1467,7 +1483,7 @@ function renderSettings(){
       const minVal=parseFloat(ms.min)||0;
       const breach=minVal>0&&curQty!==null&&curQty<=minVal;
       return`<div class="setting-row" style="${breach?'background:var(--amber-light)':''}">
-        <label style="font-size:12px;flex:1">${item.name}
+        <label style="font-size:12px;flex:1">${esc(item.name)}
           ${curQty!==null?`<span style="color:var(--text2);font-size:10px;margin-left:4px">(มี ${curQty} ${item.unit})</span>`:''}
           ${breach?`<span class="min-badge min-badge-warn">ต่ำกว่า Min!</span>`:''}
         </label>
@@ -1494,12 +1510,12 @@ function renderSettings(){
         const pIn=customPrice.in!==undefined?customPrice.in:v.priceIn||0;
         const pOnline=customPrice.online!==undefined?customPrice.online:v.priceOnline||0;
         return`<div style="display:grid;grid-template-columns:140px 1fr 1fr auto;align-items:center;padding:6px 12px;border-bottom:0.5px solid var(--border);gap:6px;background:var(--surface)">
-          <div style="font-size:12px;color:var(--text);line-height:1.3">${name}</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.3">${esc(name)}</div>
           <input type="number" value="${pIn}" id="mp-in-${safeId}" min="0" step="5"
             style="background:#e8f4ff;border:0.5px solid #b0d0f0;border-radius:var(--r);padding:5px 8px;font-size:13px;font-weight:600;color:#1a4a7a;text-align:center;font-family:var(--font);outline:none;width:100%">
           <input type="number" value="${pOnline}" id="mp-online-${safeId}" min="0" step="5"
             style="background:#fff3e8;border:0.5px solid #f0c090;border-radius:var(--r);padding:5px 8px;font-size:13px;font-weight:600;color:#7a3a0a;text-align:center;font-family:var(--font);outline:none;width:100%">
-          <button onclick="saveMenuPrice('${name.replace(/'/g,"\\'")}','${safeId}')"
+          <button onclick="saveMenuPrice('${escAttr(name)}','${safeId}')"
             style="background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:5px 8px;font-size:11px;cursor:pointer;font-family:var(--font);white-space:nowrap">บันทึก</button>
         </div>`;
       }).join('')}
@@ -1523,7 +1539,7 @@ function renderSettings(){
           <select id="cm-cat-${idx}" style="background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
             ${['Hot Coffee','Iced Coffee','Non-Coffee','Bakery'].map(c=>`<option value="${c}" ${m.cat===c?'selected':''}>${c}</option>`).join('')}
           </select>
-          <input type="text" value="${m.name}" id="cm-name-${idx}" placeholder="ชื่อเมนู"
+          <input type="text" value="${escAttr(m.name)}" id="cm-name-${idx}" placeholder="ชื่อเมนู"
             style="flex:1;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none">
           <button onclick="deleteCustomMenu(${idx})"
             style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:6px 10px;font-size:12px;cursor:pointer">✕</button>
@@ -1613,8 +1629,8 @@ let discountLog = {}; // {date: {staff:N, member:N}} จำนวนครั้
 try{salesLog=JSON.parse(localStorage.getItem(SALES_LS)||'{}')}catch(e){salesLog={}}
 try{discountLog=JSON.parse(localStorage.getItem(DISCOUNT_LS)||'{}')}catch(e){discountLog={}}
 
-function saveSalesLog(){localStorage.setItem(SALES_LS,JSON.stringify(salesLog));}
-function saveDiscountLog(){localStorage.setItem(DISCOUNT_LS,JSON.stringify(discountLog));}
+function saveSalesLog(){lsSave(SALES_LS,salesLog);}
+function saveDiscountLog(){lsSave(DISCOUNT_LS,discountLog);}
 
 // ══════════════════════════════════════════════════════════
 // MANAGER — ยอดขายรายวัน (🧾 ยอดขาย)
@@ -1695,7 +1711,7 @@ function renderMgrSales(){
 
       html+=`<div style="border-bottom:0.5px solid var(--border);background:${total>0?'rgba(58,143,95,0.04)':'var(--surface)'}">
         <div style="padding:8px 16px 4px;display:flex;align-items:center;gap:8px">
-          <div style="flex:1;font-size:13px;font-weight:${total>0?600:400};color:var(--text)">${menu.name}</div>
+          <div style="flex:1;font-size:13px;font-weight:${total>0?600:400};color:var(--text)">${esc(menu.name)}</div>
           ${total>0?`<div style="font-size:11px;color:var(--green);font-weight:600">${total} ${cat==='Bakery'?'ชิ้น':'แก้ว'} · ${(pIn*inQty+pOnline*onlineQty).toLocaleString()} ฿</div>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 16px 10px">
@@ -1703,22 +1719,22 @@ function renderMgrSales(){
           <div style="background:#e8f4ff;border-radius:var(--r);padding:6px 8px">
             <div style="font-size:9px;color:#2a7ab0;font-weight:600;margin-bottom:4px">หน้าร้าน ${pIn?pIn+' ฿':''}</div>
             <div style="display:flex;align-items:center;gap:0;background:#fff;border-radius:6px;overflow:hidden">
-              <button onclick="adjustSalesV2('${menu.name}','${d}','in',-1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">−</button>
+              <button onclick="adjustSalesV2('${escAttr(menu.name)}','${d}','in',-1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">−</button>
               <input type="text" inputmode="numeric" value="${inQty||''}" id="sale-in-${safeId}"
-                onchange="setSalesV2('${menu.name}','${d}','in',this.value)"
+                onchange="setSalesV2('${escAttr(menu.name)}','${d}','in',this.value)"
                 style="width:36px;text-align:center;font-family:var(--mono);font-size:15px;font-weight:700;border:none;background:transparent;outline:none;padding:4px 0;color:var(--text)" placeholder="0">
-              <button onclick="adjustSalesV2('${menu.name}','${d}','in',1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">+</button>
+              <button onclick="adjustSalesV2('${escAttr(menu.name)}','${d}','in',1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">+</button>
             </div>
           </div>
           <!-- ออนไลน์ -->
           <div style="background:#fff3e8;border-radius:var(--r);padding:6px 8px">
             <div style="font-size:9px;color:#b06020;font-weight:600;margin-bottom:4px">ออนไลน์ ${pOnline?pOnline+' ฿':''}</div>
             <div style="display:flex;align-items:center;gap:0;background:#fff;border-radius:6px;overflow:hidden">
-              <button onclick="adjustSalesV2('${menu.name}','${d}','online',-1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">−</button>
+              <button onclick="adjustSalesV2('${escAttr(menu.name)}','${d}','online',-1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">−</button>
               <input type="text" inputmode="numeric" value="${onlineQty||''}" id="sale-online-${safeId}"
-                onchange="setSalesV2('${menu.name}','${d}','online',this.value)"
+                onchange="setSalesV2('${escAttr(menu.name)}','${d}','online',this.value)"
                 style="width:36px;text-align:center;font-family:var(--mono);font-size:15px;font-weight:700;border:none;background:transparent;outline:none;padding:4px 0;color:var(--text)" placeholder="0">
-              <button onclick="adjustSalesV2('${menu.name}','${d}','online',1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">+</button>
+              <button onclick="adjustSalesV2('${escAttr(menu.name)}','${d}','online',1)" style="background:transparent;border:none;color:var(--text);font-size:20px;padding:4px 10px;cursor:pointer;line-height:1">+</button>
             </div>
           </div>
         </div>
@@ -1944,7 +1960,8 @@ function sendSalesTelegram(date){
   const {token,chatId}=settings;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const sales=salesLog[date]||{};
-  const totalCups=Object.values(sales).reduce((s,v)=>s+(v||0),0);
+  function getSalesQty(v){return typeof v==='object'?((v.in||0)+(v.online||0)):(v||0);}
+  const totalCups=Object.values(sales).reduce((s,v)=>s+getSalesQty(v),0);
   if(!totalCups){toast('ยังไม่มียอดขาย');return;}
 
   const dateStr=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
@@ -1952,21 +1969,15 @@ function sendSalesTelegram(date){
 
   const cats=['Hot Coffee','Iced Coffee','Non-Coffee','Bakery'];
   cats.forEach(cat=>{
-    const catItems=cat==='Bakery'
-      ?bakeryItems.filter(b=>sales[b.name])
-      :Object.entries(MENU_RECIPES).filter(([,v])=>v.cat===cat&&sales[_])
-        .map(([name])=>name).filter(name=>sales[name]);
-
-    // แก้ให้ถูก
     const catMenus=cat==='Bakery'
-      ?bakeryItems.filter(b=>sales[b.name]>0)
-      :Object.entries(MENU_RECIPES).filter(([name,v])=>v.cat===cat&&sales[name]>0).map(([name])=>name);
+      ?bakeryItems.filter(b=>getSalesQty(sales[b.name])>0)
+      :Object.entries(MENU_RECIPES).filter(([name,v])=>v.cat===cat&&getSalesQty(sales[name])>0).map(([name])=>name);
 
     if(!catMenus.length)return;
     msg+=`\n${cat==='Hot Coffee'?'☕':cat==='Iced Coffee'?'🧊':cat==='Non-Coffee'?'🍵':'🥐'} ${cat}\n`;
     catMenus.forEach(m=>{
       const name=typeof m==='object'?m.name:m;
-      msg+=`  • ${name}: ${sales[name]} ${cat==='Bakery'?'ชิ้น':'แก้ว'}\n`;
+      msg+=`  • ${name}: ${getSalesQty(sales[name])} ${cat==='Bakery'?'ชิ้น':'แก้ว'}\n`;
     });
   });
 
@@ -2014,7 +2025,7 @@ function renderMgrInit(){
 
       html+=`<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:0.5px solid var(--border);gap:10px;background:var(--surface)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;color:var(--text);font-weight:500">${item.name}</div>
+          <div style="font-size:13px;color:var(--text);font-weight:500">${esc(item.name)}</div>
           <div style="font-size:10px;color:var(--text3);margin-top:1px">
             ${existing?`มีข้อมูลอยู่แล้ว: <b style="color:var(--green)">${existing.qty} ${item.unit}</b>`:'ยังไม่มีข้อมูล'}
             ${minVal>0?` · Min: ${minVal}`:''}</div>
@@ -2496,7 +2507,7 @@ function clearAllData(){
   if(!confirm('ล้างข้อมูลทั้งหมดในเครื่อง?'))return;
   entries=[];customItems=[];historyData={};
   saveEntries();saveCustom();
-  localStorage.setItem(LS.history,'{}');
+  lsSave(LS.history,'{}');
   toast('ล้างข้อมูลแล้ว');renderContent('settings');
 }
 
@@ -2523,7 +2534,7 @@ function openStockDrawer(name,unit){
   document.getElementById('ds-note').value=e?.note||'';
   document.getElementById('ds-unit-note').textContent=`หน่วย: ${itemDef.unit}`;
 
-  let info = `<b>${name}</b>`;
+  let info = `<b>${esc(name)}</b>`;
   if(e && e.qty !== '') info += `<br>ยอดล่าสุด: <b>${e.qty} ${e.unit}</b>`;
   if(e?.recvDate) info += ` · รับ ${fmt(e.recvDate)}`;
 
@@ -2602,7 +2613,9 @@ function toggleNoExp(){
 async function saveStockEntry(){
   const btn=document.getElementById('ds-save-btn');
   btn.disabled=true;btn.textContent='กำลังบันทึก...';
-  const qty=document.getElementById('ds-qty').value;
+  const rawQty=document.getElementById('ds-qty').value;
+  const qty=parseFloat(rawQty);
+  if(isNaN(qty)||qty<0){btn.disabled=false;btn.textContent='บันทึก';toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
   const expVal=document.getElementById('ds-exp').value;
   const expDate=noExp?'NO_EXP':expVal;
   const note=document.getElementById('ds-note').value.trim();
@@ -2891,7 +2904,7 @@ function deleteCustomItem(name, cat, btn){
 
 function addCustomMenu(){
   customMenus.push({name:'เมนูใหม่',cat:'Iced Coffee',priceIn:0,priceOnline:0});
-  localStorage.setItem(LS.customMenus,JSON.stringify(customMenus));
+  lsSave(LS.customMenus,customMenus);
   renderContent('settings');
   setTimeout(()=>document.getElementById('cm-name-'+(customMenus.length-1))?.focus(),100);
 }
@@ -2904,7 +2917,7 @@ function saveCustomMenu(idx){
   const pOnline=parseFloat(document.getElementById('cm-online-'+idx)?.value)||0;
   if(!name){toast('กรุณาใส่ชื่อเมนู');return;}
   customMenus[idx]={name,cat,priceIn:pIn,priceOnline:pOnline};
-  localStorage.setItem(LS.customMenus,JSON.stringify(customMenus));
+  lsSave(LS.customMenus,customMenus);
   toast(`บันทึก "${name}" แล้ว ✓`);
   renderContent('settings');
 }
@@ -2912,7 +2925,7 @@ function saveCustomMenu(idx){
 function deleteCustomMenu(idx){
   if(!confirm(`ลบเมนู "${customMenus[idx]?.name}"?`))return;
   customMenus.splice(idx,1);
-  localStorage.setItem(LS.customMenus,JSON.stringify(customMenus));
+  lsSave(LS.customMenus,customMenus);
   toast('ลบแล้ว');renderContent('settings');
 }
 
@@ -2922,7 +2935,7 @@ function saveMenuPrice(name, safeId){
   if(!menuPriceOverrides[name])menuPriceOverrides[name]={};
   menuPriceOverrides[name].in=pIn;
   menuPriceOverrides[name].online=pOnline;
-  localStorage.setItem(LS.menuPrices,JSON.stringify(menuPriceOverrides));
+  lsSave(LS.menuPrices,menuPriceOverrides);
   toast(`${name}: หน้าร้าน ${pIn}฿ · ออนไลน์ ${pOnline}฿ ✓`);
 }
 
@@ -2937,7 +2950,7 @@ function saveAllMenuPrices(){
     menuPriceOverrides[name].in=parseFloat(inEl.value)||0;
     menuPriceOverrides[name].online=parseFloat(onlineEl?.value)||0;
   });
-  localStorage.setItem(LS.menuPrices,JSON.stringify(menuPriceOverrides));
+  lsSave(LS.menuPrices,menuPriceOverrides);
   toast('บันทึกราคาทั้งหมดแล้ว ✓');
 }
 
@@ -2956,13 +2969,13 @@ function saveItemPrice(name, safeId){
   const price=parseFloat(document.getElementById('item-price-'+safeId)?.value)||0;
   if(!price){toast('กรุณาใส่ราคา');return;}
   itemPrices[name]=price.toFixed(2);
-  localStorage.setItem(LS.itemPrices,JSON.stringify(itemPrices));
+  lsSave(LS.itemPrices,itemPrices);
   toast(`บันทึกราคา ${name}: ${price.toFixed(2)} ฿ แล้ว ✓`);
 }
 
 function addBakeryItem(){
   bakeryItems.push({name:'เบเกอรี่ใหม่',costPerPc:'',sellingPrice:''});
-  localStorage.setItem(LS.bakery,JSON.stringify(bakeryItems));
+  lsSave(LS.bakery,bakeryItems);
   renderContent('settings');
   setTimeout(()=>{
     const lastIdx=bakeryItems.length-1;
@@ -2977,7 +2990,7 @@ function saveBakeryItem(idx){
   const sell=parseFloat(document.getElementById('bk-sell-'+idx)?.value)||0;
   if(!name){toast('กรุณาใส่ชื่อเบเกอรี่');return;}
   bakeryItems[idx]={name,costPerPc:cost||'',sellingPrice:sell||''};
-  localStorage.setItem(LS.bakery,JSON.stringify(bakeryItems));
+  lsSave(LS.bakery,bakeryItems);
   const margin=cost&&sell?Math.round((sell-cost)/sell*100):0;
   toast(`บันทึก ${name} แล้ว ✓${margin?' | Margin '+margin+'%':''}`);
   renderContent('settings');
@@ -2986,7 +2999,7 @@ function saveBakeryItem(idx){
 function deleteBakery(idx){
   if(!confirm(`ลบ "${bakeryItems[idx]?.name}"?`))return;
   bakeryItems.splice(idx,1);
-  localStorage.setItem(LS.bakery,JSON.stringify(bakeryItems));
+  lsSave(LS.bakery,bakeryItems);
   toast('ลบแล้ว');renderContent('settings');
 }
 
@@ -3008,11 +3021,14 @@ function addCustomItem(cat){
 // ══════════════════════════════════════════════════════════
 function sendTelegramMsg(msg){
   const {token,chatId}=settings;
-  if(!token||!chatId)return;
+  if(!token||!chatId)return Promise.resolve({ok:false,description:'ยังไม่ได้ตั้งค่า Telegram'});
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),15000);
   return fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({chat_id:chatId,text:msg,disable_web_page_preview:true})
-  }).then(r=>r.json());
+    body:JSON.stringify({chat_id:chatId,text:msg,disable_web_page_preview:true}),
+    signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
 }
 
 function sendTelegram(){
@@ -3101,14 +3117,17 @@ function sendOrderTelegram(){
 // ══════════════════════════════════════════════════════════
 async function pushToSheets(action, body) {
   if (!settings.scriptUrl) return false;
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),15000);
   try {
     const res = await fetch(settings.scriptUrl, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action, ...body})
+      body: JSON.stringify({action, ...body}), signal:ctrl.signal
     });
+    clearTimeout(timer);
     const d = await res.json();
     return d.ok;
-  } catch(e) { return false; }
+  } catch(e) { clearTimeout(timer); return false; }
 }
 
 async function syncNow() {
@@ -3157,7 +3176,7 @@ async function syncNow() {
 const REVENUE_LS='shiftv3_revenue';
 let revenueLog={};
 try{revenueLog=JSON.parse(localStorage.getItem(REVENUE_LS)||'{}')}catch(e){revenueLog={}}
-function saveRevenueLog(){localStorage.setItem(REVENUE_LS,JSON.stringify(revenueLog));}
+function saveRevenueLog(){lsSave(REVENUE_LS,revenueLog);}
 
 function renderMgrRevenue(){
   if(currentRole!=='manager') return`<div class="empty">เฉพาะ Manager</div>`;
@@ -3449,20 +3468,20 @@ function renderMgrSummary(){
     if(expired.length) html+=expired.map(e=>`
       <div class="activity-row">
         <div class="activity-icon">🔴</div>
-        <div class="activity-body"><div class="activity-name">${e.name}</div>
+        <div class="activity-body"><div class="activity-name">${esc(e.name)}</div>
         <div class="activity-detail">หมดอายุแล้ว ${Math.abs(daysLeft(e.expDate))} วัน · ${fmt(e.expDate)}</div></div>
-        <button onclick="openStockDrawer('${e.name.replace(/'/g,"\\'")}','${e.unit}')" style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);cursor:pointer;color:var(--text);font-family:var(--font)">แก้ไข</button>
+        <button onclick="openStockDrawer('${escAttr(e.name)}','${escAttr(e.unit)}')" style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);cursor:pointer;color:var(--text);font-family:var(--font)">แก้ไข</button>
       </div>`).join('');
     if(expiring.length) html+=expiring.map(e=>`
       <div class="activity-row">
         <div class="activity-icon">🟡</div>
-        <div class="activity-body"><div class="activity-name">${e.name}</div>
+        <div class="activity-body"><div class="activity-name">${esc(e.name)}</div>
         <div class="activity-detail">หมดอายุ${expLabel(e.expDate)} · ${fmt(e.expDate)}</div></div>
       </div>`).join('');
     if(out.length) html+=out.map(e=>`
       <div class="activity-row">
         <div class="activity-icon">📦</div>
-        <div class="activity-body"><div class="activity-name">${e.name}</div>
+        <div class="activity-body"><div class="activity-name">${esc(e.name)}</div>
         <div class="activity-detail">หมดสต็อก — ต้องสั่งด่วน</div></div>
       </div>`).join('');
     html+=`</div>`;
@@ -3477,14 +3496,14 @@ function renderMgrSummary(){
     const icon=e.type==='receive'?'📦':e.type==='loss'?'🗑️':'📋';
     const color=e.type==='receive'?'var(--green)':e.type==='loss'?'var(--red)':'var(--text)';
     const detail=e.type==='receive'
-      ?`รับ ${e.qty} ${e.unit}${e.supplier?' จาก '+e.supplier:''}${e.priceTotal?' · ฿'+e.priceTotal:''}`
+      ?`รับ ${e.qty} ${e.unit}${e.supplier?' จาก '+esc(e.supplier):''}${e.priceTotal?' · ฿'+e.priceTotal:''}`
       :e.type==='loss'
-      ?`เสีย ${e.qty} ${e.unit} · ${e.lossReason||''}`
+      ?`เสีย ${e.qty} ${e.unit} · ${esc(e.lossReason||'')}`
       :`${e.qty} ${e.unit} · ${e.status==='ok'?'พอ':e.status==='low'?'น้อย':'หมด'}`;
     return`<div class="activity-row">
       <div class="activity-icon">${icon}</div>
       <div class="activity-body">
-        <div class="activity-name" style="color:${color}">${e.name}</div>
+        <div class="activity-name" style="color:${color}">${esc(e.name)}</div>
         <div class="activity-detail">${detail}</div>
       </div>
       <div class="activity-time">${new Date(e.ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
@@ -3554,9 +3573,9 @@ function renderMgrCost(){
       }
       return`<div class="cost-row">
         <div style="flex:1">
-          <div class="cost-name">${name}</div>
+          <div class="cost-name">${esc(name)}</div>
           <div class="cost-meta">
-            ${cur.supplier?'📍 '+cur.supplier+' · ':''}${fmt(cur.recvDate||cur.date)}
+            ${cur.supplier?'📍 '+esc(cur.supplier)+' · ':''}${fmt(cur.recvDate||cur.date)}
             ${prev?`<br>ก่อนหน้า: ฿${prevP?.toFixed(2)} · ${fmt(prev.recvDate||prev.date)}`:''}
           </div>
         </div>
@@ -3598,7 +3617,7 @@ let pendingOrders=[];
 function loadOrders(){
   try{pendingOrders=JSON.parse(localStorage.getItem(LS_ORDERS)||'[]')}catch(e){pendingOrders=[];}
 }
-function saveOrders(){localStorage.setItem(LS_ORDERS,JSON.stringify(pendingOrders));}
+function saveOrders(){lsSave(LS_ORDERS,pendingOrders);}
 
 function renderMgrApprove(){
   if(currentRole!=='manager') return `<div class="empty">เฉพาะ Manager</div>`;
@@ -3645,7 +3664,7 @@ function renderMgrApprove(){
         ${needOrder.map((item,i)=>`
           <div class="approve-item-row">
             <div style="width:8px;height:8px;border-radius:50%;background:${item.status==='out'?'var(--red)':'var(--amber)'};flex-shrink:0"></div>
-            <div class="approve-item-name">${item.name}<br><span style="color:var(--text3);font-size:10px">มีอยู่ ${item.cur} ${item.unit}</span></div>
+            <div class="approve-item-name">${esc(item.name)}<br><span style="color:var(--text3);font-size:10px">มีอยู่ ${item.cur} ${item.unit}</span></div>
             <input type="number" value="${item.suggest}" min="0" step="0.5" id="approve-qty-${i}"
               style="width:64px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:13px;color:var(--text);text-align:right;font-family:var(--mono);outline:none">
             <span class="approve-item-unit">${item.unit}</span>
@@ -3776,12 +3795,13 @@ function printSummary(){
     cat.items.forEach(item=>{
       const e=lbn[item.name];
       const sc=e?.status==='out'?'out':e?.status==='low'?'low':'ok';
-      html+=`<tr><td>${item.name}</td><td>${item.unit}</td><td class="${sc}">${e?.qty||'—'}</td><td>${e?.status||'—'}</td><td>${fmt(e?.expDate||'')}</td></tr>`;
+      html+=`<tr><td>${esc(item.name)}</td><td>${item.unit}</td><td class="${sc}">${e?.qty||'—'}</td><td>${e?.status||'—'}</td><td>${fmt(e?.expDate||'')}</td></tr>`;
     });
   });
   html+=`</table></body></html>`;
 
   const w=window.open('','_blank');
+  if(!w){toast('Popup ถูกบล็อก — กรุณาอนุญาต popup');return;}
   w.document.write(html); w.document.close(); w.print();
 }
 
@@ -3905,7 +3925,7 @@ function renderSummaryScreen(date){
   <div style="border-bottom:0.5px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;background:var(--surface)">
     <div style="width:4px;height:36px;border-radius:2px;background:var(--green);flex-shrink:0"></div>
     <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">ชื่อผู้คีย์ยอด</div></div>
-    <input type="text" id="ss-recordedBy" value="${recordedBy}" placeholder="ชื่อ..."
+    <input type="text" id="ss-recordedBy" value="${escAttr(recordedBy)}" placeholder="ชื่อ..."
       onchange="updateSummaryField('${date}','recordedBy',this.value)"
       style="width:130px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;font-family:var(--font);color:var(--green);text-align:right;outline:none">
   </div>
@@ -3953,7 +3973,7 @@ function renderSummaryScreen(date){
       <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">${cashRemain.toLocaleString()} ฿</span>
     </div>
     ${newMembers>0?`<div style="padding:10px 16px;background:#f0e8ff;font-size:13px;font-weight:600;color:#6a20c0">สมาชิกใหม่วันนี้ ${newMembers} คน</div>`:''}
-    ${recordedBy?`<div style="padding:8px 16px;background:var(--surface2);font-size:11px;color:var(--text2)">คีย์โดย ${recordedBy}</div>`:''}
+    ${recordedBy?`<div style="padding:8px 16px;background:var(--surface2);font-size:11px;color:var(--text2)">คีย์โดย ${esc(recordedBy)}</div>`:''}
   </div>
   <div style="padding:0 12px 8px;display:flex;gap:8px">
     <button class="btn-primary" style="flex:1" onclick="sendSummaryTelegram('${date}')">ส่ง Telegram</button>
@@ -3967,7 +3987,8 @@ function renderSummaryScreen(date){
 
 function updateSummaryField(date,field,val){
   if(!revenueLog[date]) revenueLog[date]={};
-  revenueLog[date][field]=parseFloat(val)||parseInt(val)||0;
+  const strFields=['recordedBy','note','notes'];
+  revenueLog[date][field]=strFields.includes(field)?String(val):(isNaN(parseFloat(val))?0:parseFloat(val));
   saveRevenueLog();
   renderSummaryScreen(date);
 }
