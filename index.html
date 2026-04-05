@@ -980,7 +980,15 @@ function tickCountdown(){
     banner.classList.toggle('urgent',diff<=10*60*1000);
     document.getElementById('countdown-text').textContent=diff<=10*60*1000?'เช็คสต็อกด่วน! ใกล้ปิดร้านแล้ว':'เตรียมเช็คสต็อกก่อนปิดร้าน';
     document.getElementById('countdown-time').textContent=`${m}:${String(s).padStart(2,'0')}`;
-  } else {
+  } else if(diff<=0&&diff>-2000&&!window._closingSummarySent){
+    // ถึงเวลาปิดร้าน — ส่งสรุปรายวันอัตโนมัติ
+    window._closingSummarySent=true;
+    banner.classList.add('hidden');
+    if(settings.token&&settings.chatId&&typeof buildDailySummaryMsg==='function'){
+      sendTelegramMsg('🔔 ถึงเวลาปิดร้านแล้ว!\n'+buildDailySummaryMsg());
+      toast('ส่งสรุปปิดร้านอัตโนมัติแล้ว ✓');
+    }
+  } else if(diff>30*60*1000){
     banner.classList.add('hidden');
   }
 }
@@ -2534,6 +2542,12 @@ async function saveStockEntry(){
   else entries.unshift(entry);
   saveEntries();addHistory(entry);
   checkMinStockAlert(entry.name,qty,entry.unit);
+  // auto-notify Telegram
+  if(settings.token&&settings.chatId){
+    const icon=selectedStatus==='out'?'🔴':selectedStatus==='low'?'⚠️':'✅';
+    const expInfo=expDate&&expDate!=='NO_EXP'?`\nหมดอายุ: ${fmt(expDate)}`:'';
+    sendTelegramMsg(`${icon} เช็คสต็อก: ${entry.name}\nเหลือ: ${qty} ${entry.unit} · สถานะ: ${selectedStatus==='ok'?'ปกติ':selectedStatus==='low'?'น้อย':'หมด'}${expInfo}${note?'\nหมายเหตุ: '+note:''}\n#check #shift_kkc`);
+  }
   if(settings.scriptUrl)await pushToSheets('saveEntry',{entry}).catch(()=>{});
   closeDrawer('drawer-stock');
   toast('บันทึกแล้ว ✓');
@@ -2741,6 +2755,10 @@ async function saveLossEntry(){
     date:todayStr(),ts:Date.now(),type:'loss',status:'ok'
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
+  // auto-notify Telegram
+  if(settings.token&&settings.chatId){
+    sendTelegramMsg(`🗑 บันทึกของเสีย: ${entry.name}\nจำนวน: ${qty} ${entry.unit}\nสาเหตุ: ${selectedLossReason}${note?'\nหมายเหตุ: '+note:''}\n#loss #shift_kkc`);
+  }
   if(settings.scriptUrl)pushToSheets('saveEntry',{entry}).catch(()=>{});
   closeDrawer('drawer-loss');
   toast('บันทึกของเสียแล้ว ✓');renderContent(currentTab);
@@ -2947,28 +2965,42 @@ function sendTelegram(){
   const low=vals.filter(e=>e.status==='low').length;
   const out=vals.filter(e=>e.status==='out').length;
   const now=new Date();
+  const today=todayStr();
   const dateStr=now.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
 
   let msg=`📦 รายงานสต็อก SHIFT KKC\n${dateStr} ${timeStr}\n`;
-  msg+=`${'='.repeat(26)}\n`;
-  msg+=`สรุป: ปกติ ${ok}  น้อย ${low}  หมด ${out}\n`;
+  msg+=`${'='.repeat(28)}\n`;
+  msg+=`สรุป: ✅ ${ok}  ⚠️ ${low}  🔴 ${out}\n`;
 
-  if(out>0){
-    msg+=`\nหมด/ต้องสั่งด่วน:\n`;
-    vals.filter(e=>e.status==='out').forEach(e=>{msg+=`• ${e.name}\n`;});
-  }
-  if(low>0){
-    msg+=`\nเหลือน้อย:\n`;
-    vals.filter(e=>e.status==='low').forEach(e=>{msg+=`• ${e.name} ${e.qty?'('+e.qty+' '+e.unit+')':''}\n`;});
-  }
+  // รายละเอียดแยกตามหมวด
+  getAllCats().forEach(cat=>{
+    const catItems=cat.items.map(item=>{const e=lbn[item.name];return{name:item.name,unit:item.unit,e};}).filter(x=>x.e);
+    if(!catItems.length)return;
+    msg+=`\n📋 ${cat.cat}\n`;
+    catItems.forEach(({name,unit,e})=>{
+      const icon=e.status==='out'?'🔴':e.status==='low'?'🟡':'🟢';
+      const exp=e.expDate&&e.expDate!=='NO_EXP'?` · exp ${fmt(e.expDate)}`:'';
+      msg+=`${icon} ${name}: ${e.qty} ${unit}${exp}\n`;
+    });
+  });
 
+  // ต้นทุนรับเข้าวันนี้
+  const todayRecv=entries.filter(e=>e.type==='receive'&&e.date===today);
+  const totalCost=todayRecv.reduce((s,e)=>s+(parseFloat(e.priceTotal)||0),0);
+  if(todayRecv.length) msg+=`\n💰 รับเข้าวันนี้: ${todayRecv.length} รายการ · ฿${totalCost.toLocaleString('th-TH')}\n`;
+
+  // ของเสียวันนี้
+  const todayLoss=entries.filter(e=>e.type==='loss'&&e.date===today);
+  if(todayLoss.length) msg+=`🗑 ของเสียวันนี้: ${todayLoss.length} รายการ\n`;
+
+  // หมดอายุ
   const expired=vals.filter(e=>{const d=daysLeft(e.expDate);return d!==null&&d<0;});
   const expiring=vals.filter(e=>{const d=daysLeft(e.expDate);return d!==null&&d>=0&&d<=3;});
-  if(expired.length){msg+=`\nหมดอายุแล้ว:\n`;expired.forEach(e=>{msg+=`• ${e.name}\n`;});}
-  if(expiring.length){msg+=`\nใกล้หมดอายุ (3 วัน):\n`;expiring.forEach(e=>{msg+=`• ${e.name} (${expLabel(e.expDate)})\n`;});}
+  if(expired.length){msg+=`\n⛔ หมดอายุแล้ว:\n`;expired.forEach(e=>{msg+=`• ${e.name}\n`;});}
+  if(expiring.length){msg+=`\n⏰ ใกล้หมดอายุ (3 วัน):\n`;expiring.forEach(e=>{msg+=`• ${e.name} (${expLabel(e.expDate)})\n`;});}
 
-  msg+=`\nรวม ${vals.length} รายการ\n#stock #shift_kkc`;
+  msg+=`\n${'='.repeat(28)}\nรวม ${vals.length} รายการ\n#stock #shift_kkc`;
 
   toast('กำลังส่ง...');
   sendTelegramMsg(msg).then(r=>{
@@ -3703,27 +3735,78 @@ function printSummary(){
   w.document.write(html); w.document.close(); w.print();
 }
 
-function sendTelegramSummary(){
+function buildDailySummaryMsg(){
   const lbn=latestByName();const vals=Object.values(lbn);
   const today=todayStr();
+  const ok=vals.filter(e=>e.status==='ok').length;
   const out=vals.filter(e=>e.status==='out');
   const low=vals.filter(e=>e.status==='low');
   const expired=vals.filter(e=>{const d=daysLeft(e.expDate);return d!==null&&d<0;});
-  const totalCost=entries.filter(e=>e.type==='receive'&&e.date===today).reduce((s,e)=>s+(parseFloat(e.priceTotal)||0),0);
+  const todayRecv=entries.filter(e=>e.type==='receive'&&e.date===today);
+  const totalCost=todayRecv.reduce((s,e)=>s+(parseFloat(e.priceTotal)||0),0);
   const lossToday=entries.filter(e=>e.type==='loss'&&e.date===today);
+  const totalLossQty=lossToday.reduce((s,e)=>s+(parseFloat(e.qty)||0),0);
 
   const dateStr=new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
-  let msg=`📊 สรุปประจำวัน SHIFT KKC\n${dateStr}\n${'='.repeat(26)}\n`;
-  msg+=`💰 ต้นทุนรับเข้า: ฿${totalCost.toLocaleString('th-TH')}\n`;
-  msg+=`📦 สต็อก: OK ${vals.filter(e=>e.status==='ok').length} · น้อย ${low.length} · หมด ${out.length}\n`;
-  if(lossToday.length) msg+=`🗑 ของเสียวันนี้: ${lossToday.length} รายการ\n`;
-  if(expired.length) msg+=`\n🔴 หมดอายุแล้ว: ${expired.map(e=>e.name).join(', ')}\n`;
-  if(out.length) msg+=`\n🚨 ต้องสั่งด่วน: ${out.map(e=>e.name).join(', ')}\n`;
-  if(low.length) msg+=`\n⚠️ เหลือน้อย: ${low.map(e=>e.name).join(', ')}\n`;
-  msg+=`\n#summary #shift_kkc`;
+  let msg=`📊 สรุปประจำวัน SHIFT KKC\n${dateStr}\n${'='.repeat(28)}\n`;
 
+  // สต็อก
+  msg+=`\n📦 สถานะสต็อก\n`;
+  msg+=`✅ ปกติ ${ok} · ⚠️ น้อย ${low.length} · 🔴 หมด ${out.length}\n`;
+  if(out.length){msg+=`\n🚨 ต้องสั่งด่วน:\n`;out.forEach(e=>{msg+=`• ${e.name}\n`;});}
+  if(low.length){msg+=`\n⚠️ เหลือน้อย:\n`;low.forEach(e=>{msg+=`• ${e.name}: ${e.qty} ${e.unit}\n`;});}
+
+  // รับเข้าวันนี้
+  if(todayRecv.length){
+    msg+=`\n📥 รับเข้าวันนี้ (${todayRecv.length} รายการ · ฿${totalCost.toLocaleString('th-TH')})\n`;
+    todayRecv.forEach(e=>{
+      msg+=`• ${e.name}: ${e.qty} ${e.unit}`;
+      if(e.supplier) msg+=` · ${e.supplier}`;
+      if(e.priceTotal) msg+=` · ฿${parseFloat(e.priceTotal).toLocaleString('th-TH')}`;
+      msg+=`\n`;
+    });
+  }
+
+  // ของเสียวันนี้
+  if(lossToday.length){
+    msg+=`\n🗑 ของเสียวันนี้ (${lossToday.length} รายการ)\n`;
+    lossToday.forEach(e=>{
+      msg+=`• ${e.name}: ${e.qty} ${e.unit||''} · ${e.lossReason||''}${e.note?' · '+e.note:''}\n`;
+    });
+  }
+
+  // หมดอายุ
+  if(expired.length){msg+=`\n⛔ หมดอายุแล้ว:\n`;expired.forEach(e=>{msg+=`• ${e.name}\n`;});}
+
+  // รายรับ (ถ้ามี)
+  const rev=revenueLog[today];
+  if(rev){
+    const cashIn=parseFloat(rev.cashIn)||0,qrOnline=parseFloat(rev.qrOnline)||0,delivery=parseFloat(rev.delivery)||0;
+    const total=cashIn+qrOnline+delivery;
+    if(total>0){
+      msg+=`\n💵 รายรับ\n`;
+      msg+=`• เงินสด: ฿${cashIn.toLocaleString()}\n`;
+      msg+=`• QR/โอน: ฿${qrOnline.toLocaleString()}\n`;
+      if(delivery>0) msg+=`• Delivery: ฿${delivery.toLocaleString()}\n`;
+      msg+=`• รวม: ฿${total.toLocaleString()}\n`;
+    }
+  }
+
+  // ยอดขาย (ถ้ามี)
+  const sales=salesLog[today];
+  if(sales){
+    function getSalesQty(v){return typeof v==='object'?((v.in||0)+(v.online||0)):(v||0);}
+    const totalCups=Object.values(sales).reduce((s,v)=>s+getSalesQty(v),0);
+    if(totalCups>0) msg+=`\n☕ ยอดขายวันนี้: ${totalCups} แก้ว/ชิ้น\n`;
+  }
+
+  msg+=`\n${'='.repeat(28)}\n#summary #shift_kkc`;
+  return msg;
+}
+
+function sendTelegramSummary(){
   toast('กำลังส่ง...');
-  sendTelegramMsg(msg).then(r=>{
+  sendTelegramMsg(buildDailySummaryMsg()).then(r=>{
     if(r?.ok) toast('ส่งสรุปรายวันสำเร็จ ✓');
     else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
   }).catch(()=>alert('ส่งไม่สำเร็จ'));
