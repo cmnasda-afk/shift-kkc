@@ -1129,7 +1129,7 @@ function renderStock(){
   </div>`;
 
   getAllCats().forEach(cat => {
-    html += `<div class="cat-header">${cat.cat}
+    html += `<div class="cat-header">${esc(cat.cat)}
       ${currentRole==='manager'?`<button class="add-item-btn" onclick="addCustomItem('${escAttr(cat.cat)}')">+ เพิ่ม</button>`:''}
     </div>`;
 
@@ -1199,7 +1199,7 @@ function renderStock(){
           <div class="balance-cell curr ${currClass}">
             <div class="balance-cell-label">ยอดตอนนี้ ${changeHtml}</div>
             <div class="balance-cell-val">${cur && cur.qty!=='' ? cur.qty : '—'}</div>
-            <div class="balance-cell-unit">${item.unit}</div>
+            <div class="balance-cell-unit">${esc(item.unit)}</div>
           </div>
         </div>
       </div>`;
@@ -1217,7 +1217,7 @@ function renderReceiveList(){
   const lbn=latestByName();
   let html=`<div class="item-search"><input type="text" placeholder="ค้นหาสินค้า..." oninput="filterReceive(this.value)" id="recv-search"></div>`;
   getAllCats().forEach(cat=>{
-    html+=`<div class="cat-header">${cat.cat}</div>`;
+    html+=`<div class="cat-header">${esc(cat.cat)}</div>`;
     cat.items.forEach(item=>{
       const e=lbn[item.name];
       const lastRecv=e&&e.recvDate?`รับล่าสุด ${fmt(e.recvDate)}`:'ยังไม่มีข้อมูล';
@@ -1306,7 +1306,7 @@ function renderOrder(){
         <div class="order-urgency urgency-${item.urgency}"></div>
         <div class="order-name">${esc(item.name)}<br><span style="font-size:10px;color:var(--text2)">${esc(item.reason)}</span></div>
         <input class="order-qty-input" type="number" value="${item.suggest}" min="0" step="0.5" id="oq-${item.name.replace(/\W/g,'_')}">
-        <span style="font-size:11px;color:var(--text2)">${item.unit}</span>
+        <span style="font-size:11px;color:var(--text2)">${esc(item.unit)}</span>
       </div>`).join('');
   }
 
@@ -1353,7 +1353,7 @@ function renderHistory(){
             <div class="h-entry-info">
               <div class="h-entry-name">${esc(e.name)}</div>
               <div class="h-entry-detail">${detail||'—'}</div>
-              ${photos.length?`<div style="display:flex;gap:4px;margin-top:6px">${photos.map(p=>`<img src="${p}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border2)" onclick="viewPhoto('${p}')">`).join('')}</div>`:''}
+              ${photos.length?`<div style="display:flex;gap:4px;margin-top:6px">${photos.map(p=>`<img src="${escAttr(p)}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border2)" onclick="viewPhoto('${escAttr(p)}')">`).join('')}</div>`:''}
             </div>
             <div class="h-entry-time">${new Date(e.ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>`;
@@ -1372,14 +1372,14 @@ function renderSettings(){
   return`
   <div class="setting-group">
     <div class="setting-group-title">Google Sheets (ซิงค์ข้ามเครื่อง)</div>
-    <div class="setting-row"><label>Apps Script URL</label><input type="text" id="s-url" value="${s.scriptUrl||''}" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;font-size:11px"></div>
+    <div class="setting-row"><label>Apps Script URL</label><input type="text" id="s-url" value="${escAttr(s.scriptUrl||'')}" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;font-size:11px"></div>
     <div style="padding:4px 16px 10px;font-size:11px;color:var(--text2)">วางใน Extensions → Apps Script แล้ว Deploy เป็น Web App</div>
   </div>
 
   <div class="setting-group">
     <div class="setting-group-title">Telegram</div>
-    <div class="setting-row"><label>Bot Token</label><input type="text" id="s-token" value="${s.token||''}" placeholder="8612555113:AAF..."></div>
-    <div class="setting-row"><label>Chat ID</label><input type="text" id="s-chatid" value="${s.chatId||''}" placeholder="เช่น -1001234567890"></div>
+    <div class="setting-row"><label>Bot Token</label><input type="text" id="s-token" value="${escAttr(s.token||'')}" placeholder="8612555113:AAF..."></div>
+    <div class="setting-row"><label>Chat ID</label><input type="text" id="s-chatid" value="${escAttr(s.chatId||'')}" placeholder="เช่น -1001234567890"></div>
   </div>
 
   <div class="setting-group">
@@ -1399,7 +1399,7 @@ function renderSettings(){
   <div class="setting-group" style="margin-top:4px">
     <div class="setting-group-title">จัดการรายการสต็อก + ราคาวัตถุดิบ</div>
     ${getAllCats().map(cat=>`
-      <div style="padding:8px 16px 4px;font-size:11px;font-weight:600;color:var(--text2);background:var(--bg2);border-bottom:0.5px solid var(--border);border-top:0.5px solid var(--border)">${cat.cat}</div>
+      <div style="padding:8px 16px 4px;font-size:11px;font-weight:600;color:var(--text2);background:var(--bg2);border-bottom:0.5px solid var(--border);border-top:0.5px solid var(--border)">${esc(cat.cat)}</div>
       ${cat.items.map(item=>{
         const isCustom=customItems.find(c=>c.name===item.name&&c.cat===cat.cat);
         const safeId=item.name.replace(/[^a-zA-Z0-9ก-ฮ]/g,'_');
@@ -1420,9 +1420,9 @@ function renderSettings(){
           </div>
           <div style="padding:0 16px 8px;display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--text3);min-width:60px">ราคา/หน่วย</span>
-            <input type="number" value="${displayPrice}" id="item-price-${safeId}" placeholder="฿ ต่อ ${item.unit}"
+            <input type="number" value="${displayPrice}" id="item-price-${safeId}" placeholder="฿ ต่อ ${escAttr(item.unit)}"
               style="width:100px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:13px;color:var(--green);font-family:var(--font);outline:none" step="0.01" min="0">
-            <span style="font-size:11px;color:var(--text3)">฿ / ${item.unit}</span>
+            <span style="font-size:11px;color:var(--text3)">฿ / ${esc(item.unit)}</span>
             ${lastRecv?`<span style="font-size:10px;color:var(--text3)">รับล่าสุด ${fmt(lastRecv.date)}</span>`:''}
             <button onclick="saveItemPrice('${escAttr(item.name)}','${safeId}')"
               style="margin-left:auto;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:5px 10px;font-size:11px;cursor:pointer;font-family:var(--font)">บันทึกราคา</button>
@@ -1484,12 +1484,12 @@ function renderSettings(){
       const breach=minVal>0&&curQty!==null&&curQty<=minVal;
       return`<div class="setting-row" style="${breach?'background:var(--amber-light)':''}">
         <label style="font-size:12px;flex:1">${esc(item.name)}
-          ${curQty!==null?`<span style="color:var(--text2);font-size:10px;margin-left:4px">(มี ${curQty} ${item.unit})</span>`:''}
+          ${curQty!==null?`<span style="color:var(--text2);font-size:10px;margin-left:4px">(มี ${curQty} ${esc(item.unit)})</span>`:''}
           ${breach?`<span class="min-badge min-badge-warn">ต่ำกว่า Min!</span>`:''}
         </label>
         <div style="display:flex;gap:6px;align-items:center">
           <input type="number" placeholder="ไม่จำกัด" value="${ms.min||''}" id="ms-min-${item.name.replace(/\W/g,'_')}" style="width:72px" min="0" step="0.5">
-          <span style="font-size:11px;color:var(--text3);min-width:28px">${item.unit}</span>
+          <span style="font-size:11px;color:var(--text3);min-width:28px">${esc(item.unit)}</span>
         </div>
       </div>`;
     }).join('')).join('')}
@@ -1887,7 +1887,7 @@ function renderSalesSummary(sales, date){
     const remaining=curQty!==null?curQty-used:null;
     const remColor=remaining!==null&&remaining<0?'var(--red)':remaining!==null&&remaining<2?'var(--amber)':'var(--green)';
     html+=`<div style="display:flex;align-items:center;padding:6px 16px;border-top:0.5px solid var(--border);gap:8px;font-size:12px">
-      <div style="flex:1;color:var(--text)">${ing}</div>
+      <div style="flex:1;color:var(--text)">${esc(ing)}</div>
       <div style="color:var(--red);font-weight:600">−${usedFmt}</div>
       ${remaining!==null?`<div style="color:${remColor};font-weight:600;min-width:60px;text-align:right">เหลือ ${remaining.toFixed(1)} ${cur?.unit||''}</div>`:''}
     </div>`;
@@ -2016,7 +2016,7 @@ function renderMgrInit(){
 
   // แสดงทุกหมวด
   getAllCats().forEach(cat=>{
-    html+=`<div class="cat-header" style="position:sticky;top:0;z-index:5">${cat.cat}</div>`;
+    html+=`<div class="cat-header" style="position:sticky;top:0;z-index:5">${esc(cat.cat)}</div>`;
     cat.items.forEach(item=>{
       const existing=lbn[item.name];
       const safeId=item.name.replace(/[^a-zA-Z0-9ก-ฮ]/g,'_');
@@ -2027,7 +2027,7 @@ function renderMgrInit(){
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;color:var(--text);font-weight:500">${esc(item.name)}</div>
           <div style="font-size:10px;color:var(--text3);margin-top:1px">
-            ${existing?`มีข้อมูลอยู่แล้ว: <b style="color:var(--green)">${existing.qty} ${item.unit}</b>`:'ยังไม่มีข้อมูล'}
+            ${existing?`มีข้อมูลอยู่แล้ว: <b style="color:var(--green)">${existing.qty} ${esc(item.unit)}</b>`:'ยังไม่มีข้อมูล'}
             ${minVal>0?` · Min: ${minVal}`:''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -2035,7 +2035,7 @@ function renderMgrInit(){
             placeholder="${existing?existing.qty:'0'}"
             style="width:72px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:7px 8px;font-size:14px;font-weight:600;font-family:var(--mono);color:var(--text);text-align:right;outline:none"
             onfocus="this.select()">
-          <span style="font-size:11px;color:var(--text2);min-width:32px">${item.unit}</span>
+          <span style="font-size:11px;color:var(--text2);min-width:32px">${esc(item.unit)}</span>
         </div>
       </div>`;
     });
@@ -2504,11 +2504,16 @@ function changePinFlow(){
 }
 
 function clearAllData(){
-  if(!confirm('ล้างข้อมูลทั้งหมดในเครื่อง?'))return;
-  entries=[];customItems=[];historyData={};
-  saveEntries();saveCustom();
-  lsSave(LS.history,'{}');
-  toast('ล้างข้อมูลแล้ว');renderContent('settings');
+  if(!confirm('ล้างข้อมูลทั้งหมด? (รวม PIN, ตั้งค่า, ประวัติทั้งหมด)'))return;
+  Object.values(LS).forEach(k=>localStorage.removeItem(k));
+  [typeof SALES_LS!=='undefined'?SALES_LS:null,typeof DISCOUNT_LS!=='undefined'?DISCOUNT_LS:null,typeof REVENUE_LS!=='undefined'?REVENUE_LS:null,typeof LS_ORDERS!=='undefined'?LS_ORDERS:null].forEach(k=>{if(k)localStorage.removeItem(k);});
+  entries=[];customItems=[];historyData={};settings={};minStock={};
+  itemPrices={};bakeryItems=[];menuPriceOverrides={};customMenus=[];
+  if(typeof salesLog!=='undefined')salesLog={};
+  if(typeof discountLog!=='undefined')discountLog={};
+  if(typeof revenueLog!=='undefined')revenueLog={};
+  if(typeof pendingOrders!=='undefined')pendingOrders=[];
+  toast('ล้างข้อมูลทั้งหมดแล้ว');goLogin();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2653,7 +2658,7 @@ function viewPhoto(src){
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.onclick=()=>document.body.removeChild(ov);
-  ov.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">
+  ov.innerHTML=`<img src="${escAttr(src)}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">
     <button style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer">✕</button>`;
   document.body.appendChild(ov);
 }
@@ -2706,7 +2711,7 @@ function handlePhoto(input,slot){
 function showPhotoSlot(slot,b64){
   const el=document.getElementById('photo-slot-'+slot);
   el.classList.add('has-photo');
-  el.innerHTML=`<img src="${b64}" style="width:100%;height:100%;object-fit:cover">
+  el.innerHTML=`<img src="${escAttr(b64)}" style="width:100%;height:100%;object-fit:cover">
     <button class="photo-del-btn" onclick="delPhoto(event,'${slot}')">✕</button>`;
 }
 
@@ -2757,12 +2762,14 @@ function calcUnitPrice(){
 async function saveReceiveEntry(){
   const btn=document.getElementById('dr-save-btn');
   btn.disabled=true;btn.textContent='กำลังบันทึก...';
-  const qty=document.getElementById('dr-qty').value;
+  const rawRecvQty=document.getElementById('dr-qty').value;
+  const qty=parseFloat(rawRecvQty)||0;
+  if(qty<=0){btn.disabled=false;btn.textContent='บันทึกรับของ';toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
   const recvDate=document.getElementById('dr-date').value;
   const expDate=document.getElementById('dr-exp').value;
   const supplier=document.getElementById('dr-supplier').value.trim();
   const priceTotal=parseFloat(document.getElementById('dr-price').value)||0;
-  const pricePerUnit=priceTotal>0?(priceTotal/parseFloat(qty)).toFixed(2):'';
+  const pricePerUnit=priceTotal>0?(priceTotal/qty).toFixed(2):'';
   const note=document.getElementById('dr-note').value.trim();
 
   const entry={
@@ -2830,7 +2837,8 @@ function selectReason(btn,reason){
 async function saveLossEntry(){
   if(!activeDrawerItem?.name){toast('กรุณาเลือกรายการก่อน');return;}
   if(!selectedLossReason){toast('กรุณาเลือกสาเหตุ');return;}
-  const qty=document.getElementById('dl-qty').value;
+  const qty=parseFloat(document.getElementById('dl-qty').value)||0;
+  if(qty<=0){toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
   const note=document.getElementById('dl-note').value.trim();
   const lbn=latestByName();const cur=lbn[activeDrawerItem.name];
   const entry={
@@ -3135,8 +3143,10 @@ async function syncNow() {
   const btn = document.getElementById('sync-btn');
   btn.textContent = '↻ ...';
   try {
+    const syncCtrl=new AbortController();
+    const syncTimer=setTimeout(()=>syncCtrl.abort(),15000);
     // ดึง balance (ยอดคงเหลือ) จาก Sheets
-    const rb = await fetch(`${settings.scriptUrl}?action=getBalance`).then(r => r.json());
+    const rb = await fetch(`${settings.scriptUrl}?action=getBalance`,{signal:syncCtrl.signal}).then(r => r.json());
     if (rb.balance && rb.balance.length) {
       // อัปเดต entries จาก balance
       rb.balance.forEach(b => {
@@ -3159,9 +3169,10 @@ async function syncNow() {
     }
 
     // ดึง custom items
-    const rc = await fetch(`${settings.scriptUrl}?action=getCustomItems`).then(r => r.json());
+    const rc = await fetch(`${settings.scriptUrl}?action=getCustomItems`,{signal:syncCtrl.signal}).then(r => r.json());
     if (rc.items) { customItems = rc.items; saveCustom(); }
 
+    clearTimeout(syncTimer);
     toast('ซิงค์สำเร็จ ✓');
     renderContent(currentTab);
   } catch(e) {
@@ -3236,7 +3247,7 @@ function renderMgrRevenue(){
       </div>
     </div>
     <button onclick="toggleRevenueEdit('${selDate}')"
-      style="background:${isEdit?'#fff3c0':'rgba(255,255,255,0.2)'};color:${isEdit?'#8a6000':'${hasData?"#fff":"var(--text2)"}'};border:none;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer">
+      style="background:${isEdit?'#fff3c0':'rgba(255,255,255,0.2)'};color:${isEdit?'#8a6000':(hasData?'#fff':'var(--text2)')};border:none;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer">
       ${isEdit?'บันทึกแก้ไข':'แก้ไข'}
     </button>
   </div>
@@ -3651,6 +3662,7 @@ function renderMgrApprove(){
     </div>`).join('')}
   </div>`;
 
+  window._pendingApprovalItems=needOrder;
   if(!needOrder.length){
     html+=`<div class="empty">ไม่มีรายการที่ต้องสั่ง<br><span style="font-size:11px">สต็อกอยู่ในระดับดี</span></div>`;
   } else {
@@ -3664,15 +3676,15 @@ function renderMgrApprove(){
         ${needOrder.map((item,i)=>`
           <div class="approve-item-row">
             <div style="width:8px;height:8px;border-radius:50%;background:${item.status==='out'?'var(--red)':'var(--amber)'};flex-shrink:0"></div>
-            <div class="approve-item-name">${esc(item.name)}<br><span style="color:var(--text3);font-size:10px">มีอยู่ ${item.cur} ${item.unit}</span></div>
+            <div class="approve-item-name">${esc(item.name)}<br><span style="color:var(--text3);font-size:10px">มีอยู่ ${item.cur} ${esc(item.unit)}</span></div>
             <input type="number" value="${item.suggest}" min="0" step="0.5" id="approve-qty-${i}"
               style="width:64px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:13px;color:var(--text);text-align:right;font-family:var(--mono);outline:none">
-            <span class="approve-item-unit">${item.unit}</span>
+            <span class="approve-item-unit">${esc(item.unit)}</span>
           </div>`).join('')}
       </div>
       <div class="approve-actions">
         <button class="approve-btn approve-no" onclick="rejectOrder()">✕ ปฏิเสธ</button>
-        <button class="approve-btn approve-yes" onclick="approveOrder(${JSON.stringify(needOrder).replace(/"/g,'&quot;')})">✓ อนุมัติและส่ง Telegram</button>
+        <button class="approve-btn approve-yes" onclick="approveOrder(window._pendingApprovalItems)">✓ อนุมัติและส่ง Telegram</button>
       </div>
     </div>`;
   }
@@ -3791,11 +3803,11 @@ function printSummary(){
   <p>ต้นทุนรับเข้าวันนี้: <b>฿${totalCost.toLocaleString('th-TH')}</b> | หมด: <b>${out.length}</b> | เหลือน้อย: <b>${low.length}</b></p>
   <table><tr><th>รายการ</th><th>หน่วย</th><th>ยอดคงเหลือ</th><th>สถานะ</th><th>หมดอายุ</th></tr>`;
   getAllCats().forEach(cat=>{
-    html+=`<tr><td colspan="5" style="background:#e8f4ec;font-weight:bold">${cat.cat}</td></tr>`;
+    html+=`<tr><td colspan="5" style="background:#e8f4ec;font-weight:bold">${esc(cat.cat)}</td></tr>`;
     cat.items.forEach(item=>{
       const e=lbn[item.name];
       const sc=e?.status==='out'?'out':e?.status==='low'?'low':'ok';
-      html+=`<tr><td>${esc(item.name)}</td><td>${item.unit}</td><td class="${sc}">${e?.qty||'—'}</td><td>${e?.status||'—'}</td><td>${fmt(e?.expDate||'')}</td></tr>`;
+      html+=`<tr><td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td class="${sc}">${e?.qty||'—'}</td><td>${e?.status||'—'}</td><td>${fmt(e?.expDate||'')}</td></tr>`;
     });
   });
   html+=`</table></body></html>`;
