@@ -4192,9 +4192,12 @@ function renderSummaryScreen(date){
       style="width:130px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;font-family:var(--font);color:var(--green);text-align:right;outline:none">
   </div>
 
-  ${sec('รอบเช้า — เงินในเก๊ะ')}
+  ${sec('☀️ รอบเช้า 07:00 — เงินในเก๊ะ')}
   ${row('openCash','เงินในเก๊ะตอนเปิด',r.openCash,'var(--text)','฿','นับเงินยกมาจากเมื่อวาน')}
-  ${sec('ยอดขาย','var(--green)')}
+  <div style="padding:8px 16px;background:var(--surface)">
+    <button onclick="sendMorningCash('${date}')" style="width:100%;background:#2a7ab0;color:#fff;border:none;border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">☀️ ส่งยอดเช้า (เงินในเก๊ะ) → Telegram</button>
+  </div>
+  ${sec('🌙 รอบเย็น 17:00 — ยอดขาย','var(--green)')}
   ${row('cashIn','เงินสดหน้าร้าน',r.cashIn,'#1a5a30')}
   ${row('qrOnline','โอน / QR Code',r.qrOnline,'#1a5a30')}
   ${row('delivery','เดลิเวอรี่',r.delivery,'#1a5a30','฿','Grab / Foodpanda / Line Man')}
@@ -4256,7 +4259,7 @@ function renderSummaryScreen(date){
     ${recordedBy?`<div style="padding:8px 16px;background:var(--surface2);font-size:11px;color:var(--text2)">คีย์โดย ${esc(recordedBy)}</div>`:''}
   </div>
   <div style="padding:0 12px 8px;display:flex;gap:8px">
-    <button class="btn-primary" style="flex:1" onclick="sendSummaryTelegram('${date}')">ส่ง Telegram</button>
+    <button class="btn-primary" style="flex:1" onclick="sendSummaryTelegram('${date}')">🌙 ส่งยอดเย็น → Telegram</button>
     <button class="btn-ghost" style="width:100px;margin:0" onclick="copySummaryText('${date}')">คัดลอก</button>
   </div>
   <div style="height:20px"></div>`;
@@ -4271,6 +4274,19 @@ function updateSummaryField(date,field,val){
   revenueLog[date][field]=strFields.includes(field)?String(val):(isNaN(parseFloat(val))?0:parseFloat(val));
   saveRevenueLog();
   renderSummaryScreen(date);
+}
+
+function sendMorningCash(date){
+  const r=revenueLog[date]||{};
+  const openCash=parseFloat(r.openCash)||0;
+  if(!openCash){toast('กรุณาใส่เงินในเก๊ะก่อน');return;}
+  const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
+  const msg=`☀️ ยอดเช้า SHIFT KKC\n${dateLabel}\n${'='.repeat(28)}\n\n💰 เงินในเก๊ะตอนเปิด: ฿${openCash.toLocaleString()}\n${r.recordedBy?'คีย์โดย: '+r.recordedBy+'\n':''}\n#morning #shift_kkc`;
+  toast('กำลังส่ง...');
+  sendTgRevenue(msg).then(r=>{
+    if(r?.ok) toast('ส่งยอดเช้าสำเร็จ ✓');
+    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+  }).catch(()=>alert('ส่งไม่สำเร็จ'));
 }
 
 function sendSummaryTelegram(date){
