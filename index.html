@@ -1483,13 +1483,13 @@ function renderSettings(){
             <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">📥 รับมาวันนี้ (ชิ้น)</div>
             <input type="number" value="${bkItem.received||''}" id="bk-recv-${idx}" placeholder="0" min="0"
               style="width:100%;background:#fff;border:0.5px solid var(--green-mid);border-radius:var(--r);padding:6px 8px;font-size:14px;font-weight:600;color:var(--green);font-family:var(--mono);outline:none"
-              onchange="saveBakeryDay(${idx},'received',this.value)">
+>
           </div>
           <div>
             <div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:2px">📦 เหลือ (ชิ้น)</div>
             <input type="number" value="${bkItem.remaining||''}" id="bk-remain-${idx}" placeholder="0" min="0"
               style="width:100%;background:#fff;border:0.5px solid var(--amber);border-radius:var(--r);padding:6px 8px;font-size:14px;font-weight:600;color:var(--amber);font-family:var(--mono);outline:none"
-              onchange="saveBakeryDay(${idx},'remaining',this.value)">
+>
           </div>
         </div>
         <button onclick="saveBakeryItem(${idx})"
@@ -3018,8 +3018,14 @@ function saveBakeryItem(idx){
   if(!name){toast('กรุณาใส่ชื่อเบเกอรี่');return;}
   bakeryItems[idx]={name,costPerPc:cost||'',sellingPrice:sell||''};
   lsSave(LS.bakery,bakeryItems);
-  const margin=cost&&sell?Math.round((sell-cost)/sell*100):0;
-  toast(`บันทึก ${name} แล้ว ✓${margin?' | Margin '+margin+'%':''}`);
+  // save received/remaining
+  const recv=parseFloat(document.getElementById('bk-recv-'+idx)?.value)||0;
+  const remain=parseFloat(document.getElementById('bk-remain-'+idx)?.value)||0;
+  const today=todayStr();
+  if(!bakeryDayLog[today])bakeryDayLog[today]={};
+  bakeryDayLog[today][name]={received:recv,remaining:remain};
+  lsSave(BAKERY_DAY_LS,bakeryDayLog);
+  toast(`บันทึก ${name} แล้ว ✓`);
   renderContent('settings');
 }
 
