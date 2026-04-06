@@ -1448,8 +1448,11 @@ function renderSettings(){
   <!-- เบเกอรี่ที่จะขาย -->
   <div class="setting-group" style="margin-top:4px">
     <div class="setting-group-title">🥐 เบเกอรี่ที่จะขาย</div>
-    <div style="padding:8px 16px;font-size:11px;color:var(--text2);background:var(--green-light);border-bottom:0.5px solid var(--green-mid)">จัดการรายการเบเกอรี่ — ชื่อ ราคาซื้อ/ชิ้น ราคาขาย margin</div>
-    ${(bakeryItems||[]).map((b,idx)=>`
+    <div style="padding:8px 16px;font-size:11px;color:var(--text2);background:var(--green-light);border-bottom:0.5px solid var(--green-mid)">จัดการรายการเบเกอรี่ — ชื่อ ราคาซื้อ/ชิ้น ราคาขาย margin · บาริสต้าดูรับมา/เหลือในยอดขายเมนู</div>
+    ${(bakeryItems||[]).map((b,idx)=>{
+      const bkDay=bakeryDayLog[todayStr()]||{};
+      const bkItem=bkDay[b.name]||{received:0,remaining:0};
+      return`
       <div style="border-bottom:0.5px solid var(--border);padding:10px 16px">
         <div style="display:flex;gap:6px;margin-bottom:6px">
           <input type="text" value="${escAttr(b.name)}" id="bk-name-${idx}"
@@ -1457,7 +1460,7 @@ function renderSettings(){
           <button onclick="deleteBakery(${idx})"
             style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:6px 10px;font-size:12px;cursor:pointer">ลบ</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
           <div>
             <div style="font-size:10px;color:var(--text3);margin-bottom:2px">ราคาซื้อ/ชิ้น (฿)</div>
             <input type="number" value="${b.costPerPc||''}" id="bk-cost-${idx}" placeholder="0"
@@ -1475,10 +1478,24 @@ function renderSettings(){
             </div>
           </div>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:var(--surface2);border-radius:var(--r);padding:8px">
+          <div>
+            <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">📥 รับมาวันนี้ (ชิ้น)</div>
+            <input type="number" value="${bkItem.received||''}" id="bk-recv-${idx}" placeholder="0" min="0"
+              style="width:100%;background:#fff;border:0.5px solid var(--green-mid);border-radius:var(--r);padding:6px 8px;font-size:14px;font-weight:600;color:var(--green);font-family:var(--mono);outline:none"
+              onchange="saveBakeryDay(${idx},'received',this.value)">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:2px">📦 เหลือ (ชิ้น)</div>
+            <input type="number" value="${bkItem.remaining||''}" id="bk-remain-${idx}" placeholder="0" min="0"
+              style="width:100%;background:#fff;border:0.5px solid var(--amber);border-radius:var(--r);padding:6px 8px;font-size:14px;font-weight:600;color:var(--amber);font-family:var(--mono);outline:none"
+              onchange="saveBakeryDay(${idx},'remaining',this.value)">
+          </div>
+        </div>
         <button onclick="saveBakeryItem(${idx})"
-          style="margin-top:6px;width:100%;background:var(--green-light);color:var(--green);border:none;border-radius:var(--r);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึก</button>
-      </div>
-    `).join('')}
+          style="width:100%;background:var(--green-light);color:var(--green);border:none;border-radius:var(--r);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึก</button>
+      </div>`;
+    }).join('')}
     <div style="padding:12px">
       <button class="btn-primary" onclick="addBakeryItem()">+ เพิ่มเบเกอรี่ใหม่</button>
     </div>
@@ -1725,9 +1742,12 @@ function renderMgrSales(){
       const pIn=bk?(bk.sellingPrice||0):getMenuPrice(menu.name,'in');
       const pOnline=bk?(bk.sellingPrice?bk.sellingPrice+15:0):getMenuPrice(menu.name,'online');
 
+      const bkDay=cat==='Bakery'?getBakeryDayData(menu.name):{};
       html+=`<div style="border-bottom:0.5px solid var(--border);background:${total>0?'rgba(58,143,95,0.04)':'var(--surface)'}">
         <div style="padding:8px 16px 4px;display:flex;align-items:center;gap:8px">
-          <div style="flex:1;font-size:13px;font-weight:${total>0?600:400};color:var(--text)">${esc(menu.name)}</div>
+          <div style="flex:1;font-size:13px;font-weight:${total>0?600:400};color:var(--text)">${esc(menu.name)}
+            ${cat==='Bakery'&&(bkDay.received||bkDay.remaining)?`<span style="font-size:10px;color:var(--text2);font-weight:400"> · รับ ${bkDay.received||0} · เหลือ <b style="color:${bkDay.remaining<=2?'var(--red)':'var(--green)'};">${bkDay.remaining||0}</b></span>`:''}
+          </div>
           ${total>0?`<div style="font-size:11px;color:var(--green);font-weight:600">${total} ${cat==='Bakery'?'ชิ้น':'แก้ว'} · ${(pIn*inQty+pOnline*onlineQty).toLocaleString()} ฿</div>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 16px 10px">
@@ -2935,6 +2955,32 @@ function saveSubUnit(name, safeId){
   minStock[name].subQty=subQty>0?subQty:0;
   saveMin();
   toast(subUnit&&subQty?`บันทึก: 1 หน่วย = ${subQty} ${subUnit} ✓`:'ล้างหน่วยย่อยแล้ว');
+}
+
+// ══════════════════════════════════════════════════════════
+// BAKERY DAILY LOG (รับมา/เหลือ)
+// ══════════════════════════════════════════════════════════
+const BAKERY_DAY_LS='shiftv3_bakeryday';
+let bakeryDayLog={};
+try{bakeryDayLog=JSON.parse(localStorage.getItem(BAKERY_DAY_LS)||'{}')}catch(e){bakeryDayLog={}}
+
+function saveBakeryDay(idx,field,val){
+  const today=todayStr();
+  const name=bakeryItems[idx]?.name;
+  if(!name)return;
+  if(!bakeryDayLog[today])bakeryDayLog[today]={};
+  if(!bakeryDayLog[today][name])bakeryDayLog[today][name]={received:0,remaining:0};
+  bakeryDayLog[today][name][field]=parseFloat(val)||0;
+  lsSave(BAKERY_DAY_LS,bakeryDayLog);
+  // auto-notify Telegram
+  if(settings.token&&settings.chatId){
+    const bk=bakeryDayLog[today][name];
+    sendTelegramMsg(`🥐 เบเกอรี่: ${name}\n📥 รับมา: ${bk.received} ชิ้น\n📦 เหลือ: ${bk.remaining} ชิ้น\n#bakery #shift_kkc`);
+  }
+}
+
+function getBakeryDayData(name){
+  return (bakeryDayLog[todayStr()]||{})[name]||{received:0,remaining:0};
 }
 
 function addBakeryItem(){
