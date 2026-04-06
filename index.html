@@ -1216,6 +1216,37 @@ function renderStock(){
 function renderReceiveList(){
   const lbn=latestByName();
   let html=`<div class="item-search"><input type="text" placeholder="ค้นหาสินค้า..." oninput="filterReceive(this.value)" id="recv-search"></div>`;
+
+  // เบเกอรี่วันนี้
+  if(bakeryItems&&bakeryItems.length){
+    const today=todayStr();
+    html+=`<div class="cat-header" style="background:rgba(196,124,21,0.1);color:var(--amber)">🥐 เบเกอรี่วันนี้</div>`;
+    bakeryItems.forEach((b,idx)=>{
+      const bkDay=(bakeryDayLog[today]||{})[b.name]||{received:0,remaining:0};
+      const sold=(bkDay.received||0)-(bkDay.remaining||0);
+      html+=`<div style="padding:10px 16px;border-bottom:0.5px solid var(--border);background:var(--surface)">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(b.name)}
+          ${sold>0?`<span style="font-size:10px;color:var(--green);margin-left:6px">ขายได้ ${sold} ชิ้น</span>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">📥 รับมา (ชิ้น)</div>
+            <input type="number" value="${bkDay.received||''}" id="bkr-recv-${idx}" placeholder="0" min="0"
+              style="width:100%;background:#fff;border:0.5px solid var(--green-mid);border-radius:var(--r);padding:7px 8px;font-size:15px;font-weight:600;color:var(--green);font-family:var(--mono);outline:none">
+          </div>
+          <div>
+            <div style="font-size:10px;color:${bkDay.remaining<=2?'var(--red)':'var(--amber)'};font-weight:600;margin-bottom:2px">📦 เหลือ (ชิ้น)</div>
+            <input type="number" value="${bkDay.remaining||''}" id="bkr-remain-${idx}" placeholder="0" min="0"
+              style="width:100%;background:#fff;border:0.5px solid ${bkDay.remaining<=2?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:7px 8px;font-size:15px;font-weight:600;color:${bkDay.remaining<=2?'var(--red)':'var(--amber)'};font-family:var(--mono);outline:none">
+          </div>
+        </div>
+      </div>`;
+    });
+    html+=`<div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+      <button onclick="saveBakeryDayBarista()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึกเบเกอรี่ + ส่ง Telegram 📩</button>
+    </div>`;
+  }
+
   getAllCats().forEach(cat=>{
     html+=`<div class="cat-header">${esc(cat.cat)}</div>`;
     cat.items.forEach(item=>{
@@ -2998,6 +3029,19 @@ function sendBakeryTelegram(){
 
 function getBakeryDayData(name){
   return (bakeryDayLog[todayStr()]||{})[name]||{received:0,remaining:0};
+}
+
+function saveBakeryDayBarista(){
+  const today=todayStr();
+  if(!bakeryDayLog[today])bakeryDayLog[today]={};
+  bakeryItems.forEach((b,idx)=>{
+    const recv=parseFloat(document.getElementById('bkr-recv-'+idx)?.value)||0;
+    const remain=parseFloat(document.getElementById('bkr-remain-'+idx)?.value)||0;
+    bakeryDayLog[today][b.name]={received:recv,remaining:remain};
+  });
+  lsSave(BAKERY_DAY_LS,bakeryDayLog);
+  toast('บันทึกเบเกอรี่แล้ว ✓');
+  sendBakeryTelegram();
 }
 
 function addBakeryItem(){
