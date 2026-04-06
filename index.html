@@ -1207,7 +1207,7 @@ function renderStock(){
           <div class="balance-cell curr ${currClass}">
             <div class="balance-cell-label">ยอดตอนนี้ ${changeHtml}</div>
             <div class="balance-cell-val">${cur && cur.qty!=='' ? cur.qty : '—'}</div>
-            <div class="balance-cell-unit">${esc(item.unit)}</div>
+            <div class="balance-cell-unit">${esc(item.unit)}${(()=>{const ms=minStock[item.name]||{};return ms.subUnit&&ms.subQty&&cur&&cur.qty!==''?` (≈${Math.round(parseFloat(cur.qty)*ms.subQty)} ${esc(ms.subUnit)})`:''})()}</div>
           </div>
         </div>
       </div>`;
@@ -1426,8 +1426,18 @@ function renderSettings(){
             ${isCustom?`<button onclick="deleteCustomItem('${escAttr(item.name)}','${escAttr(cat.cat)}',this)"
               style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:6px 8px;font-size:12px;cursor:pointer">✕</button>`:''}
           </div>
+          <div style="padding:0 16px 6px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text3);min-width:50px">หน่วยย่อย</span>
+            <input type="text" value="${escAttr((minStock[item.name]||{}).subUnit||'')}" id="item-subunit-${safeId}" placeholder="เช่น ชิ้น, ลูก"
+              style="width:70px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+            <span style="font-size:11px;color:var(--text3)">1 ${esc(item.unit)} =</span>
+            <input type="number" value="${(minStock[item.name]||{}).subQty||''}" id="item-subqty-${safeId}" placeholder="จำนวน"
+              style="width:60px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none" min="0" step="1">
+            <button onclick="saveSubUnit('${escAttr(item.name)}','${safeId}')"
+              style="background:var(--green-light);color:var(--green);border:none;border-radius:var(--r);padding:5px 8px;font-size:11px;cursor:pointer;font-family:var(--font)">บันทึก</button>
+          </div>
           <div style="padding:0 16px 8px;display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;color:var(--text3);min-width:60px">ราคา/หน่วย</span>
+            <span style="font-size:11px;color:var(--text3);min-width:50px">ราคา/หน่วย</span>
             <input type="number" value="${displayPrice}" id="item-price-${safeId}" placeholder="฿ ต่อ ${escAttr(item.unit)}"
               style="width:100px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:5px 8px;font-size:13px;color:var(--green);font-family:var(--font);outline:none" step="0.01" min="0">
             <span style="font-size:11px;color:var(--text3)">฿ / ${esc(item.unit)}</span>
@@ -2909,6 +2919,16 @@ function saveItemPrice(name, safeId){
   toast(`บันทึกราคา ${name}: ${price.toFixed(2)} ฿ แล้ว ✓`);
 }
 
+function saveSubUnit(name, safeId){
+  const subUnit=(document.getElementById('item-subunit-'+safeId)?.value||'').trim();
+  const subQty=parseFloat(document.getElementById('item-subqty-'+safeId)?.value)||0;
+  if(!minStock[name])minStock[name]={min:0};
+  minStock[name].subUnit=subUnit;
+  minStock[name].subQty=subQty>0?subQty:0;
+  saveMin();
+  toast(subUnit&&subQty?`บันทึก: 1 หน่วย = ${subQty} ${subUnit} ✓`:'ล้างหน่วยย่อยแล้ว');
+}
+
 function addBakeryItem(){
   bakeryItems.push({name:'เบเกอรี่ใหม่',costPerPc:'',sellingPrice:''});
   lsSave(LS.bakery,bakeryItems);
@@ -2997,7 +3017,9 @@ function sendTelegram(){
     catItems.forEach(({name,unit,e})=>{
       const icon=e.status==='out'?'🔴':e.status==='low'?'🟡':'🟢';
       const exp=e.expDate&&e.expDate!=='NO_EXP'?` · exp ${fmt(e.expDate)}`:'';
-      msg+=`${icon} ${name}: ${e.qty} ${unit}${exp}\n`;
+      const ms=minStock[name]||{};
+      const subInfo=ms.subUnit&&ms.subQty&&e.qty!==''?` (≈${Math.round(parseFloat(e.qty)*ms.subQty)} ${ms.subUnit})`:'';
+      msg+=`${icon} ${name}: ${e.qty} ${unit}${subInfo}${exp}\n`;
     });
   });
 
