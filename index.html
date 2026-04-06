@@ -1496,8 +1496,9 @@ function renderSettings(){
           style="width:100%;background:var(--green-light);color:var(--green);border:none;border-radius:var(--r);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึก</button>
       </div>`;
     }).join('')}
-    <div style="padding:12px">
-      <button class="btn-primary" onclick="addBakeryItem()">+ เพิ่มเบเกอรี่ใหม่</button>
+    <div style="padding:12px;display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="addBakeryItem()">+ เพิ่มเบเกอรี่ใหม่</button>
+      <button class="btn-primary" style="flex:1;background:var(--green2)" onclick="sendBakeryTelegram()">ส่งสรุปเบเกอรี่ 📩</button>
     </div>
   </div>
   <div class="setting-group" style="margin-top:4px">
@@ -2972,11 +2973,27 @@ function saveBakeryDay(idx,field,val){
   if(!bakeryDayLog[today][name])bakeryDayLog[today][name]={received:0,remaining:0};
   bakeryDayLog[today][name][field]=parseFloat(val)||0;
   lsSave(BAKERY_DAY_LS,bakeryDayLog);
-  // auto-notify Telegram
-  if(settings.token&&settings.chatId){
-    const bk=bakeryDayLog[today][name];
-    sendTelegramMsg(`🥐 เบเกอรี่: ${name}\n📥 รับมา: ${bk.received} ชิ้น\n📦 เหลือ: ${bk.remaining} ชิ้น\n#bakery #shift_kkc`);
-  }
+}
+
+function sendBakeryTelegram(){
+  const today=todayStr();
+  const bkDay=bakeryDayLog[today]||{};
+  const items=bakeryItems.filter(b=>bkDay[b.name]&&(bkDay[b.name].received||bkDay[b.name].remaining));
+  if(!items.length){toast('ยังไม่มีข้อมูลเบเกอรี่วันนี้');return;}
+  const dateStr=new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
+  let msg=`🥐 สรุปเบเกอรี่ SHIFT KKC\n${dateStr}\n${'='.repeat(28)}\n`;
+  items.forEach(b=>{
+    const d=bkDay[b.name];
+    const sold=(d.received||0)-(d.remaining||0);
+    msg+=`\n• ${b.name}\n  รับมา: ${d.received||0} · เหลือ: ${d.remaining||0} · ขายได้: ${sold>=0?sold:0} ชิ้น\n`;
+    if(b.sellingPrice&&sold>0) msg+=`  รายได้: ฿${(sold*b.sellingPrice).toLocaleString()}\n`;
+  });
+  msg+=`\n#bakery #shift_kkc`;
+  toast('กำลังส่ง...');
+  sendTelegramMsg(msg).then(r=>{
+    if(r?.ok) toast('ส่งสรุปเบเกอรี่สำเร็จ ✓');
+    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+  }).catch(()=>alert('ส่งไม่สำเร็จ'));
 }
 
 function getBakeryDayData(name){
