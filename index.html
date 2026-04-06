@@ -431,6 +431,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="sidebar-section">
         <div class="sidebar-label">รับ / จ่าย</div>
         <button class="nav-item" onclick="showTab('receive')">รับของเข้า</button>
+        <button class="nav-item" onclick="showTab('bakery')">🥐 เบเกอรี่</button>
         <button class="nav-item" onclick="showTab('loss')">ของเสีย</button>
         <button class="nav-item" onclick="showTab('order')">ใบสั่งซื้อ</button>
       </div>
@@ -1011,6 +1012,7 @@ function renderContent(tab){
   if(tab==='dashboard')         el.innerHTML=renderDashboard();
   else if(tab==='stock')        el.innerHTML=renderStock();
   else if(tab==='receive')      el.innerHTML=renderReceiveList();
+  else if(tab==='bakery')       el.innerHTML=renderBakeryTab();
   else if(tab==='loss')         el.innerHTML=renderLossList();
   else if(tab==='order')        el.innerHTML=renderOrder();
   else if(tab==='history')      el.innerHTML=renderHistory();
@@ -3032,6 +3034,56 @@ function sendBakeryTelegram(){
 
 function getBakeryDayData(name){
   return (bakeryDayLog[todayStr()]||{})[name]||{received:0,remaining:0};
+}
+
+function renderBakeryTab(){
+  const today=todayStr();
+  if(!bakeryItems||!bakeryItems.length) return`<div class="empty">ยังไม่มีรายการเบเกอรี่<br><span style="font-size:11px">Manager เพิ่มได้ที่ ตั้งค่า → เบเกอรี่ที่จะขาย</span></div>`;
+  let html=`<div style="background:var(--surface);border-bottom:0.5px solid var(--border);padding:12px 16px">
+    <div style="font-size:14px;font-weight:600;color:var(--text)">🥐 เบเกอรี่วันนี้</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px">กรอกจำนวนรับมาและเหลือ แล้วกดบันทึกด้านล่าง</div>
+  </div>`;
+  bakeryItems.forEach((b,idx)=>{
+    const bkDay=(bakeryDayLog[today]||{})[b.name]||{received:0,remaining:0};
+    const sold=(bkDay.received||0)-(bkDay.remaining||0);
+    html+=`<div style="padding:12px 16px;border-bottom:0.5px solid var(--border);background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:600;color:var(--text);flex:1">${esc(b.name)}</div>
+        ${sold>0?`<div style="font-size:12px;color:var(--green);font-weight:600">ขายได้ ${sold} ชิ้น${b.sellingPrice?' · ฿'+(sold*b.sellingPrice).toLocaleString():''}</div>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:11px;color:var(--green);font-weight:600;margin-bottom:3px">📥 รับมา (ชิ้น)</div>
+          <input type="number" value="${bkDay.received||''}" id="bkt-recv-${idx}" placeholder="0" min="0"
+            style="width:100%;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--r);padding:10px;font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono);outline:none;text-align:center">
+        </div>
+        <div>
+          <div style="font-size:11px;color:${bkDay.remaining<=2?'var(--red)':'var(--amber)'};font-weight:600;margin-bottom:3px">📦 เหลือ (ชิ้น)</div>
+          <input type="number" value="${bkDay.remaining||''}" id="bkt-remain-${idx}" placeholder="0" min="0"
+            style="width:100%;background:#fff;border:1.5px solid ${bkDay.remaining<=2?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:10px;font-size:18px;font-weight:700;color:${bkDay.remaining<=2?'var(--red)':'var(--amber)'};font-family:var(--mono);outline:none;text-align:center">
+        </div>
+      </div>
+    </div>`;
+  });
+  html+=`<div style="padding:12px 16px;display:flex;gap:8px">
+    <button onclick="saveBakeryTabAll()" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึกทั้งหมด ✓</button>
+    <button onclick="saveBakeryTabAll(true)" style="flex:1;background:var(--green2);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึก + ส่ง Telegram 📩</button>
+  </div>`;
+  return html;
+}
+
+function saveBakeryTabAll(sendTg){
+  const today=todayStr();
+  if(!bakeryDayLog[today])bakeryDayLog[today]={};
+  bakeryItems.forEach((b,idx)=>{
+    const recv=parseFloat(document.getElementById('bkt-recv-'+idx)?.value)||0;
+    const remain=parseFloat(document.getElementById('bkt-remain-'+idx)?.value)||0;
+    bakeryDayLog[today][b.name]={received:recv,remaining:remain};
+  });
+  lsSave(BAKERY_DAY_LS,bakeryDayLog);
+  toast('บันทึกเบเกอรี่แล้ว ✓');
+  renderContent('bakery');
+  if(sendTg) sendBakeryTelegram();
 }
 
 function saveBakeryDayBarista(){
