@@ -1500,14 +1500,25 @@ function renderSettings(){
       const curQty=e&&e.qty!==''?parseFloat(e.qty):null;
       const minVal=parseFloat(ms.min)||0;
       const breach=minVal>0&&curQty!==null&&curQty<=minVal;
-      return`<div class="setting-row" style="${breach?'background:var(--amber-light)':''}">
-        <label style="font-size:12px;flex:1">${esc(item.name)}
-          ${curQty!==null?`<span style="color:var(--text2);font-size:10px;margin-left:4px">(มี ${curQty} ${esc(item.unit)})</span>`:''}
-          ${breach?`<span class="min-badge min-badge-warn">ต่ำกว่า Min!</span>`:''}
-        </label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input type="number" placeholder="ไม่จำกัด" value="${ms.min||''}" id="ms-min-${item.name.replace(/\W/g,'_')}" style="width:72px" min="0" step="0.5">
-          <span style="font-size:11px;color:var(--text3);min-width:28px">${esc(item.unit)}</span>
+      const sid=item.name.replace(/\W/g,'_');
+      return`<div style="${breach?'background:var(--amber-light)':''}border-bottom:0.5px solid var(--border)">
+        <div class="setting-row" style="border:none;padding-bottom:4px">
+          <label style="font-size:12px;flex:1">${esc(item.name)}
+            ${curQty!==null?`<span style="color:var(--text2);font-size:10px;margin-left:4px">(มี ${curQty} ${esc(item.unit)}${ms.subUnit&&ms.subQty?` ≈${Math.round(curQty*ms.subQty)} ${esc(ms.subUnit)}`:''})</span>`:''}
+            ${breach?`<span class="min-badge min-badge-warn">ต่ำกว่า Min!</span>`:''}
+          </label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" placeholder="ไม่จำกัด" value="${ms.min||''}" id="ms-min-${sid}" style="width:72px" min="0" step="0.5">
+            <span style="font-size:11px;color:var(--text3);min-width:28px">${esc(item.unit)}</span>
+          </div>
+        </div>
+        <div style="padding:0 16px 8px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:var(--text3)">หน่วยย่อย:</span>
+          <input type="text" placeholder="เช่น ชิ้น, ลูก" value="${escAttr(ms.subUnit||'')}" id="ms-sub-${sid}"
+            style="width:65px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:4px 6px;font-size:11px;color:var(--text);font-family:var(--font);outline:none">
+          <span style="font-size:10px;color:var(--text3)">1 ${esc(item.unit)} =</span>
+          <input type="number" placeholder="?" value="${ms.subQty||''}" id="ms-subqty-${sid}"
+            style="width:50px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:4px 6px;font-size:11px;color:var(--text);font-family:var(--font);outline:none" min="0" step="1">
         </div>
       </div>`;
     }).join('')).join('')}
@@ -2404,9 +2415,14 @@ function saveSettingsForm(){
 function saveMinForm(){
   document.activeElement?.blur();
   getAllCats().forEach(cat=>cat.items.forEach(item=>{
-    const id='ms-min-'+item.name.replace(/\W/g,'_');
-    const el=document.getElementById(id);
-    if(el){if(!minStock[item.name])minStock[item.name]={min:0,target:0};minStock[item.name].min=parseFloat(el.value)||0;}
+    const sid=item.name.replace(/\W/g,'_');
+    const el=document.getElementById('ms-min-'+sid);
+    const subEl=document.getElementById('ms-sub-'+sid);
+    const subQtyEl=document.getElementById('ms-subqty-'+sid);
+    if(!minStock[item.name])minStock[item.name]={min:0,target:0};
+    if(el)minStock[item.name].min=parseFloat(el.value)||0;
+    if(subEl)minStock[item.name].subUnit=(subEl.value||'').trim();
+    if(subQtyEl)minStock[item.name].subQty=parseFloat(subQtyEl.value)||0;
   }));
   saveMin();toast('บันทึก Min Stock แล้ว');
 }
