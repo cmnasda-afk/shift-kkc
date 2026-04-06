@@ -1209,6 +1209,44 @@ function renderStock(){
     });
   });
 
+  // เบเกอรี่สต็อก
+  if(bakeryItems&&bakeryItems.length){
+    const today=todayStr();
+    html+=`<div class="cat-header" style="background:rgba(196,124,21,0.12);color:var(--amber);font-weight:600">🥐 เบเกอรี่</div>`;
+    bakeryItems.forEach(b=>{
+      const bkDay=(bakeryDayLog[today]||{})[b.name]||{received:0,remaining:0};
+      const sold=Math.max(0,(bkDay.received||0)-(bkDay.remaining||0));
+      const hasData=bkDay.received||bkDay.remaining;
+      const pillClass=!hasData?'pill-none':bkDay.remaining<=2?'pill-out':'pill-ok';
+      html+=`<div style="border-bottom:0.5px solid var(--border)">
+        <div class="stock-row" style="border:none;padding-bottom:4px;cursor:default">
+          <div class="status-pill ${pillClass}"></div>
+          <div class="stock-info">
+            <div class="stock-name">${esc(b.name)}</div>
+            <div class="stock-sub">${hasData?`ขายได้ ${sold} ชิ้น${b.sellingPrice?' · ฿'+(sold*(b.sellingPrice||0)).toLocaleString():''}`:'ยังไม่ได้บันทึก — ไปที่แท็บ 🥐 เบเกอรี่'}</div>
+          </div>
+        </div>
+        <div class="balance-bar" style="cursor:default">
+          <div class="balance-cell prev">
+            <div class="balance-cell-label">📥 รับมา</div>
+            <div class="balance-cell-val" style="color:var(--green)">${bkDay.received||'—'}</div>
+            <div class="balance-cell-unit">ชิ้น</div>
+          </div>
+          <div class="balance-cell recv">
+            <div class="balance-cell-label">🛒 ขายได้</div>
+            <div class="balance-cell-val" style="color:#2a7ab0">${hasData?sold:'—'}</div>
+            <div class="balance-cell-unit">ชิ้น</div>
+          </div>
+          <div class="balance-cell curr ${bkDay.remaining<=2?'low':'ok'}">
+            <div class="balance-cell-label">📦 เหลือ</div>
+            <div class="balance-cell-val">${hasData?bkDay.remaining:'—'}</div>
+            <div class="balance-cell-unit">ชิ้น</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
   html += `<div style="height:20px"></div>`;
   return html;
 }
