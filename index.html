@@ -3497,7 +3497,7 @@ function renderMgrRevenue(){
 function toggleRevenueEdit(date){
   if(window._revEditMode===date){
     // บันทึก
-    ['openCash','cashIn','qrOnline','delivery','disc10','discMember','discStaff','newMembers','void_','cancel'].forEach(f=>{
+    ['openCash','cashIn','qrOnline','delivery','disc10','discMember','discStaff','staffDrinkAmt','spillAmt','newMembers','void_','cancel'].forEach(f=>{
       const el=document.getElementById('rev-'+f);
       if(el){
         if(!revenueLog[date])revenueLog[date]={};
@@ -3533,6 +3533,10 @@ function buildRevenueSummaryText(date){
   if(disc10>0) msg+=`- ส่วนลด 10% = -${disc10.toLocaleString()} บาท\n`;
   if(discMember>0) msg+=`- ส่วนลดสมาชิกใหม่ 50% = -${discMember.toLocaleString()} บาท\n`;
   if(discStaff>0) msg+=`- สวัสดิการพนง. = -${discStaff.toLocaleString()} บาท\n`;
+  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
+  if(staffDrinkAmt>0){msg+=`\n☕ สวัสดิการเครื่องดื่ม = ${staffDrinkAmt.toLocaleString()} บาท\n`;if(r.staffDrinkNote)msg+=`  → ${r.staffDrinkNote}\n`;}
+  const spillAmt=parseFloat(r.spillAmt)||0;
+  if(spillAmt>0){msg+=`\n🗑 รายการเสีย = ${spillAmt.toLocaleString()} บาท\n`;if(r.spillNote)msg+=`  → ${r.spillNote}\n`;}
   if(void_>0) msg+=`- ทำลายบิล = -${void_.toLocaleString()} บาท\n`;
   if(cancel>0) msg+=`- ยกเลิกรายการ = -${cancel.toLocaleString()} บาท\n`;
   msg+=`\n💰 รวมสุทธิ ${netRevenue.toLocaleString()} บาท\n`;
@@ -4189,6 +4193,24 @@ function renderSummaryScreen(date){
   ${row('discMember','ส่วนลดสมาชิกใหม่ 50%',r.discMember,'var(--red)')}
   ${row('discStaff','สวัสดิการพนักงาน',r.discStaff,'var(--red)','฿','แก้วฟรี / อื่นๆ')}
   ${row('newMembers','สมาชิกใหม่',r.newMembers,'#6020c0','คน','จำนวนคนสมัครวันนี้')}
+  ${sec('สวัสดิการเครื่องดื่ม','#2a7ab0')}
+  ${row('staffDrinkAmt','จำนวนเงินสวัสดิการ',r.staffDrinkAmt,'#2a7ab0')}
+  <div style="padding:6px 16px 10px;background:var(--surface)">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รายละเอียดสวัสดิการ (ชื่อเมนู / พนักงาน)</div>
+    <textarea id="ss-staffDrinkNote" placeholder="เช่น ลาเต้เย็น 2 แก้ว — น้อง A, น้อง B"
+      onchange="updateSummaryField('${date}','staffDrinkNote',this.value)"
+      style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none;resize:none;height:60px">${esc(r.staffDrinkNote||'')}</textarea>
+  </div>
+
+  ${sec('รายการเสีย / ทำหก','var(--red)')}
+  ${row('spillAmt','มูลค่าเสียหาย',r.spillAmt,'var(--red)')}
+  <div style="padding:6px 16px 10px;background:var(--surface)">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">อธิบายสาเหตุ (ทำหก / ผิดเมนู / อื่นๆ)</div>
+    <textarea id="ss-spillNote" placeholder="เช่น ลาเต้ร้อนทำหก 1 แก้ว, ชาเย็นผิดเมนู"
+      onchange="updateSummaryField('${date}','spillNote',this.value)"
+      style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none;resize:none;height:60px">${esc(r.spillNote||'')}</textarea>
+  </div>
+
   ${sec('ทำลายบิล / ยกเลิก','var(--amber)')}
   ${row('void_','ทำลายบิล (Void)',r.void_,'var(--amber)')}
   ${row('cancel','ยกเลิกรายการ (Cancel)',r.cancel,'var(--amber)')}
@@ -4235,7 +4257,7 @@ function renderSummaryScreen(date){
 
 function updateSummaryField(date,field,val){
   if(!revenueLog[date]) revenueLog[date]={};
-  const strFields=['recordedBy','note','notes'];
+  const strFields=['recordedBy','note','notes','staffDrinkNote','spillNote'];
   revenueLog[date][field]=strFields.includes(field)?String(val):(isNaN(parseFloat(val))?0:parseFloat(val));
   saveRevenueLog();
   renderSummaryScreen(date);
