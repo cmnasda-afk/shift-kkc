@@ -652,7 +652,7 @@ async function hashPin(pin){const enc=new TextEncoder().encode(pin+'shift_kkc_sa
 const LS = {
   entries:'shiftv3_entries', custom:'shiftv3_custom',
   settings:'shiftv3_settings', minstock:'shiftv3_min',
-  history:'shiftv3_history', pin:'shiftv3_pin',
+  history:'shiftv3_history', pin:'shiftv3_pin', staffPin:'shiftv3_staffpin',
   itemPrices:'shiftv3_itemprices', bakery:'shiftv3_bakery',
   menuPrices:'shiftv3_menuprices',
   customMenus:'shiftv3_custommenus'
@@ -917,14 +917,18 @@ function updatePinDots(err=false){
 }
 
 async function processPin(){
-  const stored=localStorage.getItem(LS.pin)||'';
+  const isStaff=window._pinTarget==='staff';
+  const pinKey_=isStaff?LS.staffPin:LS.pin;
+  const stored=localStorage.getItem(pinKey_)||'';
+
   if(pinMode==='setup'){
     if(!pinPending){pinPending=pinBuf;pinBuf='';updatePinDots();
       document.getElementById('pin-subtitle').textContent='ยืนยัน PIN อีกครั้ง';return;}
     if(pinBuf===pinPending){
       const hashed=await hashPin(pinBuf);
-      lsSave(LS.pin,hashed);
-      pinPending='';toast('ตั้งค่า PIN สำเร็จ');
+      lsSave(pinKey_,hashed);
+      pinPending='';window._pinTarget=null;
+      toast(isStaff?'ตั้งค่า PIN พนักงานสำเร็จ':'ตั้งค่า PIN สำเร็จ');
       if(pinSetupCallback){pinSetupCallback();pinSetupCallback=null;}
       else loginAs('manager');
     } else {
@@ -941,7 +945,8 @@ async function processPin(){
   const match=(pinBuf===stored)||(hashed===stored);
   if(match){
     // migrate plaintext PIN to hashed
-    if(pinBuf===stored&&pinBuf.length===4)lsSave(LS.pin,hashed);
+    if(pinBuf===stored&&pinBuf.length===4)lsSave(pinKey_,hashed);
+    window._pinTarget=null;
     if(window._pinSuccessCallback){
       const cb=window._pinSuccessCallback;
       window._pinSuccessCallback=null;
@@ -1569,8 +1574,9 @@ function renderSettings(){
   </div>
 
   <div class="setting-group" style="margin-top:4px">
-    <div class="setting-group-title">Manager PIN</div>
-    <div class="setting-row"><label>เปลี่ยน PIN</label><button onclick="changePinFlow()" style="background:var(--surface);border:0.5px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:var(--r);cursor:pointer;font-family:var(--font);font-size:13px">เปลี่ยน PIN</button></div>
+    <div class="setting-group-title">PIN</div>
+    <div class="setting-row"><label>Manager PIN</label><button onclick="changePinFlow()" style="background:var(--surface);border:0.5px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:var(--r);cursor:pointer;font-family:var(--font);font-size:13px">เปลี่ยน</button></div>
+    <div class="setting-row"><label>PIN พนักงาน (สรุปยอด)</label><button onclick="changeStaffPinFlow()" style="background:var(--surface);border:0.5px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:var(--r);cursor:pointer;font-family:var(--font);font-size:13px">${localStorage.getItem(LS.staffPin)?'เปลี่ยน':'ตั้งค่า'}</button></div>
   </div>
 
   <button class="setting-btn setting-btn-danger" onclick="clearAllData()" style="margin-top:4px">ล้างข้อมูลทั้งหมด</button>
@@ -2397,9 +2403,19 @@ function saveMinForm(){
 
 function changePinFlow(){
   pinSetupCallback=()=>{showTab('settings');};
-  pinBuf='';pinMode='setup';pinPending='';
+  pinBuf='';pinMode='setup';pinPending='';window._pinTarget=null;
   document.getElementById('pin-title').textContent='ตั้งค่า PIN ใหม่';
   document.getElementById('pin-subtitle').textContent='กำหนด PIN 4 หลัก';
+  document.getElementById('pin-err').textContent='';
+  updatePinDots();
+  showScreen('pin');
+}
+
+function changeStaffPinFlow(){
+  pinSetupCallback=()=>{showTab('settings');};
+  pinBuf='';pinMode='setup';pinPending='';window._pinTarget='staff';
+  document.getElementById('pin-title').textContent='ตั้งค่า PIN พนักงาน';
+  document.getElementById('pin-subtitle').textContent='กำหนด PIN 4 หลักสำหรับสรุปยอด';
   document.getElementById('pin-err').textContent='';
   updatePinDots();
   showScreen('pin');
@@ -3829,11 +3845,25 @@ function initLoginSummary(){
 }
 
 function openSummaryWithPin(){
-  const stored=localStorage.getItem(LS.pin)||'';
-  if(!stored){openSummaryScreen();return;}
+  const staffStored=localStorage.getItem(LS.staffPin)||'';
+  if(!staffStored){
+    // ยังไม่ได้ตั้ง Staff PIN — ให้ตั้งค่าก่อน
+    pinBuf='';pinMode='setup';pinPending='';
+    window._pinTarget='staff';
+    document.getElementById('pin-title').textContent='ตั้งค่า PIN พนักงาน';
+    document.getElementById('pin-subtitle').textContent='กำหนด PIN 4 หลักสำหรับสรุปยอด';
+    document.getElementById('pin-err').textContent='';
+    updatePinDots();
+    pinSetupCallback=function(){openSummaryScreen();};
+    showScreen('pin');
+    history.pushState({page:'pin'},'','');
+    return;
+  }
+  // ใส่ Staff PIN
   pinBuf='';pinMode='verify';pinPending='';
+  window._pinTarget='staff';
   document.getElementById('pin-title').textContent='สรุปยอดประจำวัน';
-  document.getElementById('pin-subtitle').textContent='ใส่ Manager PIN เพื่อเข้าถึง';
+  document.getElementById('pin-subtitle').textContent='ใส่ PIN พนักงาน (4 หลัก)';
   document.getElementById('pin-err').textContent='';
   updatePinDots();
   window._pinSuccessCallback=openSummaryScreen;
