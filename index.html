@@ -958,13 +958,14 @@ async function processPin(){
 // ══════════════════════════════════════════════════════════
 function startCountdown(){
   clearInterval(window._countdownTimer);
+  window._closingSummarySent=false;
   window._countdownTimer=setInterval(tickCountdown,1000);
   tickCountdown();
 }
 
 function tickCountdown(){
-  const closeHour=settings.closeHour||17;
-  const closeMin=settings.closeMin||30;
+  const closeHour=settings.closeHour??17;
+  const closeMin=settings.closeMin??30;
   const now=new Date();
   const close=new Date();
   close.setHours(closeHour,closeMin,0,0);
@@ -1053,7 +1054,7 @@ function renderDashboard(){
       <span class="session-badge ${todayEntries.length>0?'badge-open':'badge-pending'}">${todayEntries.length>0?'มีการบันทึกแล้ว':'ยังไม่ได้เช็ค'}</span>
     </div>
     <div class="check-progress"><div class="check-progress-fill" style="width:${sessionProgress}%"></div></div>
-    <div class="check-session-meta">วันนี้บันทึก ${todayEntries.length} รายการ · ก่อนปิดร้าน ${settings.closeHour||17}:${String(settings.closeMin||30).padStart(2,'0')}</div>
+    <div class="check-session-meta">วันนี้บันทึก ${todayEntries.length} รายการ · ก่อนปิดร้าน ${settings.closeHour??17}:${String(settings.closeMin??30).padStart(2,'0')}</div>
     <button class="start-check-btn" onclick="showTab('stock')">${todayEntries.length>0?'ดูและแก้ไขสต็อก':'เริ่มเช็คสต็อก'}</button>
   </div>`;
 
@@ -1082,7 +1083,7 @@ function renderDashboard(){
     html+=recent.map(e=>{
       const icon=e.type==='receive'?'📦':e.type==='loss'?'🗑️':'📋';
       const statusColor=e.status==='out'?'var(--red)':e.status==='low'?'var(--amber)':'var(--green)';
-      return`<div class="stock-row" onclick="openStockDrawer('${escAttr(e.name)}')">
+      return`<div class="stock-row" onclick="openStockDrawer('${escAttr(e.name)}','${escAttr(e.unit||'')}')">
         <div class="status-pill" style="background:${statusColor}"></div>
         <div class="stock-info"><div class="stock-name">${icon} ${esc(e.name)}</div>
         <div class="stock-sub">${e.type==='receive'?'รับเข้า':e.type==='loss'?'บันทึกของเสีย':'เช็คสต็อก'} · ${new Date(e.ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div></div>
@@ -1417,11 +1418,11 @@ function renderSettings(){
     <div class="setting-group-title">เวลาปิดร้าน (แจ้งเตือน 30 นาทีก่อน)</div>
     <div class="setting-row">
       <label>ชั่วโมง</label>
-      <input type="number" id="s-closehour" value="${s.closeHour||17}" min="0" max="23" style="width:80px">
+      <input type="number" id="s-closehour" value="${s.closeHour??17}" min="0" max="23" style="width:80px">
     </div>
     <div class="setting-row">
       <label>นาที</label>
-      <input type="number" id="s-closemin" value="${s.closeMin||30}" min="0" max="59" style="width:80px">
+      <input type="number" id="s-closemin" value="${s.closeMin??30}" min="0" max="59" style="width:80px">
     </div>
   </div>
 
@@ -2148,7 +2149,7 @@ function saveInitStock(date){
       id:genId(),
       name:item.name,
       unit:item.unit,
-      qty:qty.toString(),
+      qty:qty,
       status,
       expDate:'',
       note:'บันทึกสต็อกเริ่มต้น',
@@ -2450,8 +2451,10 @@ function saveSettingsForm(){
   settings.scriptUrl=document.getElementById('s-url')?.value.trim()||settings.scriptUrl||'';
   settings.token=document.getElementById('s-token').value.trim();
   settings.chatId=document.getElementById('s-chatid').value.trim();
-  settings.closeHour=parseInt(document.getElementById('s-closehour').value)||17;
-  settings.closeMin=parseInt(document.getElementById('s-closemin').value)||30;
+  const _ch=parseInt(document.getElementById('s-closehour').value);
+  settings.closeHour=isNaN(_ch)?17:_ch;
+  const _cm=parseInt(document.getElementById('s-closemin').value);
+  settings.closeMin=isNaN(_cm)?30:_cm;
   saveSettings();toast('บันทึกการตั้งค่าแล้ว ✓');
   startCountdown();
 }
@@ -2494,9 +2497,9 @@ function changeStaffPinFlow(){
 function clearAllData(){
   if(!confirm('ล้างข้อมูลทั้งหมด? (รวม PIN, ตั้งค่า, ประวัติทั้งหมด)'))return;
   Object.values(LS).forEach(k=>localStorage.removeItem(k));
-  [typeof SALES_LS!=='undefined'?SALES_LS:null,typeof DISCOUNT_LS!=='undefined'?DISCOUNT_LS:null,typeof REVENUE_LS!=='undefined'?REVENUE_LS:null,typeof LS_ORDERS!=='undefined'?LS_ORDERS:null].forEach(k=>{if(k)localStorage.removeItem(k);});
+  [SALES_LS,DISCOUNT_LS,REVENUE_LS,LS_ORDERS,BAKERY_DAY_LS].forEach(k=>{if(k)localStorage.removeItem(k);});
   entries=[];customItems=[];historyData={};settings={};minStock={};
-  itemPrices={};bakeryItems=[];menuPriceOverrides={};customMenus=[];
+  itemPrices={};bakeryItems=[];menuPriceOverrides={};customMenus=[];bakeryDayLog={};
   if(typeof salesLog!=='undefined')salesLog={};
   if(typeof discountLog!=='undefined')discountLog={};
   if(typeof revenueLog!=='undefined')revenueLog={};
@@ -3261,6 +3264,7 @@ async function syncNow() {
     toast('ซิงค์สำเร็จ ✓');
     renderContent(currentTab);
   } catch(e) {
+    clearTimeout(syncTimer);
     toast('ซิงค์ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต');
   }
   btn.textContent = '↻ ซิงค์';
@@ -3871,7 +3875,7 @@ function printSummary(){
   const low=vals.filter(e=>e.status==='low');
   const totalCost=entries.filter(e=>e.type==='receive'&&e.date===today).reduce((s,e)=>s+(parseFloat(e.priceTotal)||0),0);
 
-  let html=`<html><head><meta charset="utf-8"><title>SHIFT KKC สรุปสต็อก ${today}</title>
+  let html=`<html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';"><title>SHIFT KKC สรุปสต็อก ${today}</title>
   <style>body{font-family:sans-serif;font-size:12px;padding:20px}
   h1{font-size:16px}table{width:100%;border-collapse:collapse}
   th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
