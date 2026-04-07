@@ -664,6 +664,22 @@ const LS = {
 };
 
 const TG_DEFAULTS={token:'8612555113:AAFl5hG68Tjoj01b01si-YWL8M6iPw_SQjI',chatId:'-1003775060614',stockTopicId:'42',revenueTopicId:'5'};
+const DEFAULT_BAKERY=[
+  {name:'ครัวซองค์',costPerPc:63,sellingPrice:105},
+  {name:'สตรอว์เบอร์รี่ช็อตเค้ก',costPerPc:86.25,sellingPrice:140},
+  {name:'ช็อกโกแลตหน้านิ่ม',costPerPc:65,sellingPrice:125},
+  {name:'ซอฟคุกกี้',costPerPc:47,sellingPrice:105},
+  {name:'เรดเวลเวต',costPerPc:70,sellingPrice:140},
+  {name:'บลูชีสพาย',costPerPc:73.75,sellingPrice:135},
+  {name:'สตรอว์เบอร์รี่ช็อตเล็ก',costPerPc:86.25,sellingPrice:140},
+  {name:'ชีสเค้กบิสคอฟ',costPerPc:86.25,sellingPrice:140},
+  {name:'ช็อกโกแลตหน้านิ่ม พร้อมแต่ง',costPerPc:70,sellingPrice:130},
+  {name:'เค้กส้ม',costPerPc:58.75,sellingPrice:125},
+  {name:'ซอฟคุกกี้ (โอริโอ้)',costPerPc:47,sellingPrice:105},
+  {name:'ซอฟคุกกี้ (โยเกิร์ต)',costPerPc:47,sellingPrice:105},
+  {name:'ชีสเค้กหน้าไหม้ (ไม่แต่งหน้า)',costPerPc:65,sellingPrice:145},
+  {name:'เค้กมะพร้าว',costPerPc:65,sellingPrice:120}
+];
 let entries=[], customItems=[], settings={}, minStock={}, historyData={};
 let itemPrices={}, bakeryItems=[], menuPriceOverrides={}, customMenus=[];
 let currentRole='', currentTab='dashboard', editId=null;
@@ -679,6 +695,8 @@ function load(){
   try{historyData=JSON.parse(localStorage.getItem(LS.history)||'{}')}catch(e){historyData={}}
   try{itemPrices=JSON.parse(localStorage.getItem(LS.itemPrices)||'{}')}catch(e){itemPrices={}}
   try{bakeryItems=JSON.parse(localStorage.getItem(LS.bakery)||'[]')}catch(e){bakeryItems=[]}
+  if(!bakeryItems.length){bakeryItems=[...DEFAULT_BAKERY];lsSave(LS.bakery,bakeryItems);}
+  else{const names=new Set(bakeryItems.map(b=>b.name));DEFAULT_BAKERY.forEach(d=>{if(!names.has(d.name)){bakeryItems.push(d);names.add(d.name);}});lsSave(LS.bakery,bakeryItems);}
   try{menuPriceOverrides=JSON.parse(localStorage.getItem(LS.menuPrices)||'{}')}catch(e){menuPriceOverrides={}}
   try{customMenus=JSON.parse(localStorage.getItem(LS.customMenus)||'[]')}catch(e){customMenus=[]}
 }
