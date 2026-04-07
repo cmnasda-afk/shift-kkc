@@ -627,6 +627,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <button class="loss-reason-btn" onclick="selectReason(this,'อื่นๆ')">อื่นๆ</button>
       </div>
     </div>
+    <div class="field" id="dl-date-field" style="display:none">
+      <label class="field-label">วันที่ (ย้อนหลัง)</label>
+      <input type="date" class="field-input" id="dl-date">
+    </div>
     <div class="field">
       <label class="field-label">หมายเหตุเพิ่มเติม</label>
       <textarea class="field-textarea field-input" id="dl-note" placeholder="รายละเอียด..."></textarea>
@@ -2780,7 +2784,10 @@ function openReceiveDrawer(name,unit){
   activeDrawerItem={name,unit};
   document.getElementById('dr-title').textContent='รับ: '+name;
   document.getElementById('dr-qty').value=1;
-  document.getElementById('dr-date').value=todayStr();
+  const drDateInp=document.getElementById('dr-date');
+  drDateInp.value=todayStr();
+  if(currentRole==='manager'){drDateInp.removeAttribute('disabled');drDateInp.max=todayStr();}
+  else{drDateInp.setAttribute('disabled','true');}
   document.getElementById('dr-exp').value=e?.expDate&&e.expDate!=='NO_EXP'?e.expDate:'';
   document.getElementById('dr-supplier').value='';
   document.getElementById('dr-price').value='';
@@ -2809,18 +2816,20 @@ async function saveReceiveEntry(){
   const rawRecvQty=document.getElementById('dr-qty').value;
   const qty=parseFloat(rawRecvQty)||0;
   if(qty<=0){btn.disabled=false;btn.textContent='บันทึกรับของ';toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
-  const recvDate=document.getElementById('dr-date').value;
+  const recvDateRaw=document.getElementById('dr-date').value;
+  const recvDate=(currentRole==='manager'&&recvDateRaw)?recvDateRaw:todayStr();
   const expDate=document.getElementById('dr-exp').value;
   const supplier=document.getElementById('dr-supplier').value.trim();
   const priceTotal=parseFloat(document.getElementById('dr-price').value)||0;
   const pricePerUnit=priceTotal>0?(priceTotal/qty).toFixed(2):'';
   const note=document.getElementById('dr-note').value.trim();
+  const recvTs=(recvDate!==todayStr())?new Date(recvDate+'T23:59:59').getTime():Date.now();
 
   const entry={
     id:genId(),name:activeDrawerItem.name,unit:activeDrawerItem.unit,
     qty,recvDate,expDate,supplier,priceTotal:priceTotal||'',pricePerUnit,note,
     photos: Object.fromEntries(Object.entries(recvPhotos).filter(([k,v])=>v)),
-    status:'ok',date:todayStr(),ts:Date.now(),type:'receive'
+    status:'ok',date:recvDate,ts:recvTs,type:'receive'
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
 
@@ -2864,6 +2873,10 @@ function openLossDrawer(name){
     // ถ้ายังไม่ได้เลือกรายการ ไปที่แท็บรับของแทน
     toast('เลือกรายการจากแท็บ สต็อก แล้วกด + ของเสีย');return;
   }
+  const dlDateFld=document.getElementById('dl-date-field');
+  const dlDateInp=document.getElementById('dl-date');
+  if(dlDateFld){dlDateFld.style.display=currentRole==='manager'?'block':'none';}
+  if(dlDateInp) dlDateInp.value='';
   document.getElementById('drawer-loss').classList.add('show');
 }
 
@@ -2885,10 +2898,13 @@ async function saveLossEntry(){
   if(qty<=0){toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
   const note=document.getElementById('dl-note').value.trim();
   const lbn=latestByName();const cur=lbn[activeDrawerItem.name];
+  const customLossDate=document.getElementById('dl-date')?.value;
+  const lossDate=(currentRole==='manager'&&customLossDate)?customLossDate:todayStr();
+  const lossTs=(lossDate!==todayStr())?new Date(lossDate+'T23:59:59').getTime():Date.now();
   const entry={
     id:genId(),name:activeDrawerItem.name,unit:cur?.unit||'',
     qty,lossReason:selectedLossReason,note,
-    date:todayStr(),ts:Date.now(),type:'loss',status:'ok'
+    date:lossDate,ts:lossTs,type:'loss',status:'ok'
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
   // auto-notify Telegram
@@ -3047,21 +3063,21 @@ let bakeryDayLog={};
 try{bakeryDayLog=JSON.parse(localStorage.getItem(BAKERY_DAY_LS)||'{}')}catch(e){bakeryDayLog={}}
 
 function saveBakeryDay(idx,field,val){
-  const today=todayStr();
+  const selDate=(currentRole==='manager'&&document.getElementById('bkt-date')?.value)||todayStr();
   const name=bakeryItems[idx]?.name;
   if(!name)return;
-  if(!bakeryDayLog[today])bakeryDayLog[today]={};
-  if(!bakeryDayLog[today][name])bakeryDayLog[today][name]={received:0,remaining:0};
-  bakeryDayLog[today][name][field]=parseFloat(val)||0;
+  if(!bakeryDayLog[selDate])bakeryDayLog[selDate]={};
+  if(!bakeryDayLog[selDate][name])bakeryDayLog[selDate][name]={received:0,remaining:0};
+  bakeryDayLog[selDate][name][field]=parseFloat(val)||0;
   lsSave(BAKERY_DAY_LS,bakeryDayLog);
 }
 
 function sendBakeryTelegram(){
-  const today=todayStr();
-  const bkDay=bakeryDayLog[today]||{};
+  const selDate=(currentRole==='manager'&&document.getElementById('bkt-date')?.value)||todayStr();
+  const bkDay=bakeryDayLog[selDate]||{};
   const items=bakeryItems.filter(b=>bkDay[b.name]&&(bkDay[b.name].received||bkDay[b.name].remaining));
   if(!items.length){toast('ยังไม่มีข้อมูลเบเกอรี่วันนี้');return;}
-  const dateStr=new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
+  const dateStr=new Date(selDate+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   let msg=`🥐 สรุปเบเกอรี่ SHIFT KKC\n${dateStr}\n${'='.repeat(28)}\n`;
   items.forEach(b=>{
     const d=bkDay[b.name];
@@ -3084,12 +3100,15 @@ function getBakeryDayData(name){
 function renderBakeryTab(){
   const today=todayStr();
   if(!bakeryItems||!bakeryItems.length) return`<div class="empty">ยังไม่มีรายการเบเกอรี่<br><span style="font-size:11px">Manager เพิ่มได้ที่ ตั้งค่า → เบเกอรี่ที่จะขาย</span></div>`;
+  const isManagerBk=currentRole==='manager';
   let html=`<div style="background:var(--surface);border-bottom:0.5px solid var(--border);padding:12px 16px">
-    <div style="font-size:14px;font-weight:600;color:var(--text)">🥐 เบเกอรี่วันนี้</div>
+    <div style="font-size:14px;font-weight:600;color:var(--text)">🥐 เบเกอรี่${isManagerBk?'':'วันนี้'}</div>
     <div style="font-size:11px;color:var(--text2);margin-top:2px">กรอกจำนวนรับมาและเหลือ แล้วกดบันทึกด้านล่าง</div>
+    ${isManagerBk?`<div style="margin-top:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">เลือกวันที่</label><input type="date" id="bkt-date" value="${today}" max="${today}" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font);font-size:13px" onchange="renderBakeryForDate(this.value)"></div>`:''}
   </div>`;
+  const bkSelDate=(isManagerBk&&document.getElementById('bkt-date')?.value)||today;
   bakeryItems.forEach((b,idx)=>{
-    const bkDay=(bakeryDayLog[today]||{})[b.name]||{received:0,remaining:0};
+    const bkDay=(bakeryDayLog[bkSelDate]||{})[b.name]||{received:0,remaining:0};
     const sold=(bkDay.received||0)-(bkDay.remaining||0);
     html+=`<div style="padding:12px 16px;border-bottom:0.5px solid var(--border);background:var(--surface)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -3117,13 +3136,15 @@ function renderBakeryTab(){
   return html;
 }
 
+function renderBakeryForDate(date){renderContent('bakery');}
+
 function saveBakeryTabAll(sendTg){
-  const today=todayStr();
-  if(!bakeryDayLog[today])bakeryDayLog[today]={};
+  const selDate=(currentRole==='manager'&&document.getElementById('bkt-date')?.value)||todayStr();
+  if(!bakeryDayLog[selDate])bakeryDayLog[selDate]={};
   bakeryItems.forEach((b,idx)=>{
     const recv=parseFloat(document.getElementById('bkt-recv-'+idx)?.value)||0;
     const remain=parseFloat(document.getElementById('bkt-remain-'+idx)?.value)||0;
-    bakeryDayLog[today][b.name]={received:recv,remaining:remain};
+    bakeryDayLog[selDate][b.name]={received:recv,remaining:remain};
   });
   lsSave(BAKERY_DAY_LS,bakeryDayLog);
   toast('บันทึกเบเกอรี่แล้ว ✓');
