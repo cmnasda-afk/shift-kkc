@@ -3503,7 +3503,9 @@ function renderMgrRevenue(){
   const isEdit=window._revEditMode===selDate;
 
   const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0, delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0, discStaff=parseFloat(r.discStaff)||0;
+  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
+  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
+  const discStaff=staffDrinkAmt;
   const newMembers=parseInt(r.newMembers)||0, void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
   const openCash=parseFloat(r.openCash)||0;
   const totalBefore=cashIn+qrOnline+delivery;
@@ -3571,7 +3573,7 @@ function renderMgrRevenue(){
   ${sec('ส่วนลด','var(--red)')}
   ${field('disc10','ส่วนลด 10% พนักงาน',disc10,'','var(--red)')}
   ${field('discMember','ส่วนลดสมาชิกใหม่ 50%',discMember,'','var(--red)')}
-  ${field('discStaff','สวัสดิการพนักงาน',discStaff,'แก้วฟรี / อื่นๆ','var(--red)')}
+  ${field('staffDrinkAmt','สวัสดิการพนง. (เครื่องดื่ม)',staffDrinkAmt||discStaff,'หักจากยอดอัตโนมัติ','var(--red)')}
   ${field('newMembers','สมาชิกใหม่',newMembers,'จำนวนคนสมัครวันนี้','#6020c0','คน')}
   ${sec('ทำลายบิล / ยกเลิก','var(--amber)')}
   ${field('void_','ทำลายบิล (Void)',void_,'','var(--amber)')}
@@ -3625,13 +3627,15 @@ function renderMgrRevenue(){
 function toggleRevenueEdit(date){
   if(window._revEditMode===date){
     // บันทึก
-    ['openCash','cashIn','qrOnline','delivery','disc10','discMember','discStaff','staffDrinkAmt','spillAmt','newMembers','void_','cancel'].forEach(f=>{
+    ['openCash','cashIn','qrOnline','delivery','disc10','discMember','staffDrinkAmt','spillAmt','newMembers','void_','cancel'].forEach(f=>{
       const el=document.getElementById('rev-'+f);
       if(el){
         if(!revenueLog[date])revenueLog[date]={};
         revenueLog[date][f]=parseFloat(el.value)||parseInt(el.value)||0;
       }
     });
+    // auto-sync: สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
+    if(revenueLog[date]) revenueLog[date].discStaff=parseFloat(revenueLog[date].staffDrinkAmt)||0;
     saveRevenueLog();
     window._revEditMode=null;
     toast('บันทึกแก้ไขแล้ว ✓');
@@ -3642,10 +3646,14 @@ function toggleRevenueEdit(date){
 }
 
 
+function fmtBaht(n){return n%1===0?n.toLocaleString():n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+
 function buildRevenueSummaryText(date){
   const r=revenueLog[date]||{};
   const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0, delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0, discStaff=parseFloat(r.discStaff)||0;
+  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
+  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
+  const discStaff=staffDrinkAmt; // สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
   const newMembers=parseInt(r.newMembers)||0, void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
   const openCash=parseFloat(r.openCash)||0;
   const totalBefore=cashIn+qrOnline+delivery;
@@ -3654,21 +3662,34 @@ function buildRevenueSummaryText(date){
   const cashRemain=openCash+cashIn-void_-cancel;
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   let msg=`💵 สรุปยอดรายรับ SHIFT KKC\n${dateLabel}\n${'='.repeat(28)}\n`;
-  if(r.recordedBy) msg+=`คีย์โดย: ${r.recordedBy}\n`;
-  msg+=`\nยอดขาย\n- เงินสดหน้าร้าน = ${cashIn.toLocaleString()} บาท\n- โอน/QR = ${qrOnline.toLocaleString()} บาท\n`;
-  if(delivery>0) msg+=`- เดลิเวอรี่ = ${delivery.toLocaleString()} บาท\n`;
-  msg+=`\nยอดรวมก่อนหัก = ${totalBefore.toLocaleString()} บาท\n`;
-  if(disc10>0) msg+=`- ส่วนลด 10% = -${disc10.toLocaleString()} บาท\n`;
-  if(discMember>0) msg+=`- ส่วนลดสมาชิกใหม่ 50% = -${discMember.toLocaleString()} บาท\n`;
-  if(discStaff>0) msg+=`- สวัสดิการพนง. = -${discStaff.toLocaleString()} บาท\n`;
-  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
-  if(staffDrinkAmt>0){msg+=`\n☕ สวัสดิการเครื่องดื่ม = ${staffDrinkAmt.toLocaleString()} บาท\n`;if(r.staffDrinkNote)msg+=`  → ${r.staffDrinkNote}\n`;}
+  if(r.recordedBy) msg+=`\nคีย์โดย: ${r.recordedBy}\n`;
+  msg+=`\nยอดขาย\n- เงินสดหน้าร้าน = ${fmtBaht(cashIn)} บาท\n- โอน/QR = ${fmtBaht(qrOnline)} บาท\n`;
+  if(delivery>0) msg+=`- เดลิเวอรี่ = ${fmtBaht(delivery)} บาท\n`;
+  msg+=`\nยอดรวมก่อนหัก = ${fmtBaht(totalBefore)}บาท\n`;
+  if(disc10>0) msg+=`- ส่วนลด 10% = -${fmtBaht(disc10)} บาท\n`;
+  if(discMember>0) msg+=`- ส่วนลดสมาชิกใหม่ 50% = -${fmtBaht(discMember)} บาท\n`;
+  if(discStaff>0) msg+=`- สวัสดิการพนง. = -${fmtBaht(discStaff)} บาท\n`;
+  if(staffDrinkAmt>0){
+    msg+=`\n☕ สวัสดิการเครื่องดื่ม = ${fmtBaht(staffDrinkAmt)} บาท\n`;
+    if(r.staffDrinkNote){
+      r.staffDrinkNote.split('\n').forEach(line=>{
+        if(line.trim()) msg+=`→ ${line.trim()}\n`;
+      });
+    }
+  }
   const spillAmt=parseFloat(r.spillAmt)||0;
-  if(spillAmt>0){msg+=`\n🗑 รายการเสีย = ${spillAmt.toLocaleString()} บาท\n`;if(r.spillNote)msg+=`  → ${r.spillNote}\n`;}
-  if(void_>0) msg+=`- ทำลายบิล = -${void_.toLocaleString()} บาท\n`;
-  if(cancel>0) msg+=`- ยกเลิกรายการ = -${cancel.toLocaleString()} บาท\n`;
-  msg+=`\n💰 รวมสุทธิ ${netRevenue.toLocaleString()} บาท\n`;
-  msg+=`🏦 ยอดคงเหลือในเก๊ะ ${cashRemain.toLocaleString()} บาท`;
+  if(spillAmt>0){
+    msg+=`\n🗑 รายการเสีย = ${fmtBaht(spillAmt)} บาท\n`;
+    if(r.spillNote){
+      r.spillNote.split('\n').forEach(line=>{
+        if(line.trim()) msg+=`→ ${line.trim()}\n`;
+      });
+    }
+  }
+  if(void_>0) msg+=`\n- ทำลายบิล = -${fmtBaht(void_)} บาท\n`;
+  if(cancel>0) msg+=`- ยกเลิกรายการ = -${fmtBaht(cancel)} บาท\n`;
+  msg+=`\n💰 รวมสุทธิ ${fmtBaht(netRevenue)}บาท\n`;
+  msg+=`🏦 ยอดคงเหลือในเก๊ะ ${fmtBaht(cashRemain)} บาท`;
   if(newMembers>0) msg+=`\n🆕 สมาชิกใหม่ ${newMembers} คน`;
   msg+=`\n\n#revenue #shift_kkc`;
   return msg;
@@ -4265,7 +4286,8 @@ function renderSummaryScreen(date){
   const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0;
   const delivery=parseFloat(r.delivery)||0;
   const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
-  const discStaff=parseFloat(r.discStaff)||0;
+  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
+  const discStaff=staffDrinkAmt; // sync: สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
   const newMembers=parseInt(r.newMembers)||0;
   const void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
   const openCash=parseFloat(r.openCash)||0;
@@ -4322,10 +4344,9 @@ function renderSummaryScreen(date){
   ${sec('ส่วนลด','var(--red)')}
   ${row('disc10','ส่วนลด 10% พนักงาน',r.disc10,'var(--red)')}
   ${row('discMember','ส่วนลดสมาชิกใหม่ 50%',r.discMember,'var(--red)')}
-  ${row('discStaff','สวัสดิการพนักงาน',r.discStaff,'var(--red)','฿','แก้วฟรี / อื่นๆ')}
   ${row('newMembers','สมาชิกใหม่',r.newMembers,'#6020c0','คน','จำนวนคนสมัครวันนี้')}
   ${sec('สวัสดิการเครื่องดื่ม','#2a7ab0')}
-  ${row('staffDrinkAmt','จำนวนเงินสวัสดิการ',r.staffDrinkAmt,'#2a7ab0')}
+  ${row('staffDrinkAmt','จำนวนเงินสวัสดิการ',r.staffDrinkAmt,'#2a7ab0','฿','หักจากยอดขายอัตโนมัติ')}
   <div style="padding:6px 16px 10px;background:var(--surface)">
     <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รายละเอียดสวัสดิการ (ชื่อเมนู / พนักงาน)</div>
     <textarea id="ss-staffDrinkNote" placeholder="เช่น ลาเต้เย็น 2 แก้ว — น้อง A, น้อง B"
@@ -4390,6 +4411,9 @@ function updateSummaryField(date,field,val){
   if(!revenueLog[date]) revenueLog[date]={};
   const strFields=['recordedBy','note','notes','staffDrinkNote','spillNote'];
   revenueLog[date][field]=strFields.includes(field)?String(val):(isNaN(parseFloat(val))?0:parseFloat(val));
+  // auto-sync: สวัสดิการเครื่องดื่ม = สวัสดิการพนง.
+  if(field==='staffDrinkAmt') revenueLog[date].discStaff=parseFloat(val)||0;
+  if(field==='discStaff') revenueLog[date].staffDrinkAmt=parseFloat(val)||0;
   saveRevenueLog();
   renderSummaryScreen(date);
 }
