@@ -3669,13 +3669,12 @@ function buildRevenueSummaryText(date){
   if(disc10>0) msg+=`- ส่วนลด 10% = -${fmtBaht(disc10)} บาท\n`;
   if(discMember>0) msg+=`- ส่วนลดสมาชิกใหม่ 50% = -${fmtBaht(discMember)} บาท\n`;
   if(discStaff>0) msg+=`- สวัสดิการพนง. = -${fmtBaht(discStaff)} บาท\n`;
-  if(staffDrinkAmt>0){
+  const drinks=r.staffDrinks||[];
+  if(staffDrinkAmt>0||drinks.length){
     msg+=`\n☕ สวัสดิการเครื่องดื่ม = ${fmtBaht(staffDrinkAmt)} บาท\n`;
-    if(r.staffDrinkNote){
-      r.staffDrinkNote.split('\n').forEach(line=>{
-        if(line.trim()) msg+=`→ ${line.trim()}\n`;
-      });
-    }
+    drinks.forEach(d=>{
+      if(d.name||d.item) msg+=`→ ${d.item||'—'} - ${d.name||'—'}${d.price?' ('+fmtBaht(d.price)+' ฿)':''}\n`;
+    });
   }
   const spillAmt=parseFloat(r.spillAmt)||0;
   if(spillAmt>0){
@@ -3686,11 +3685,26 @@ function buildRevenueSummaryText(date){
       });
     }
   }
-  if(void_>0) msg+=`\n- ทำลายบิล = -${fmtBaht(void_)} บาท\n`;
+  if(void_>0){
+    const vc=parseInt(r.voidCount)||0;
+    msg+=`\n- ทำลายบิล = -${fmtBaht(void_)} บาท${vc?' ('+vc+' บิล)':''}\n`;
+  }
   if(cancel>0) msg+=`- ยกเลิกรายการ = -${fmtBaht(cancel)} บาท\n`;
   msg+=`\n💰 รวมสุทธิ ${fmtBaht(netRevenue)}บาท\n`;
-  msg+=`🏦 ยอดคงเหลือในเก๊ะ ${fmtBaht(cashRemain)} บาท`;
-  if(newMembers>0) msg+=`\n🆕 สมาชิกใหม่ ${newMembers} คน`;
+  // รอบการขาย
+  const expectedCash=openCash+cashIn;
+  const actualCash=parseFloat(r.actualCash)||0;
+  if(actualCash){
+    const cashDiff=actualCash-expectedCash;
+    msg+=`🏦 จำนวนเงินที่ควรมี ${fmtBaht(expectedCash)} บาท\n`;
+    msg+=`🏦 จำนวนเงินจริงในลิ้นชัก ${fmtBaht(actualCash)} บาท\n`;
+    msg+=`📊 ส่วนต่าง ${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} บาท\n`;
+  } else {
+    msg+=`🏦 ยอดคงเหลือในเก๊ะ ${fmtBaht(cashRemain)} บาท\n`;
+  }
+  const totalBills=parseInt(r.totalBills)||0;
+  if(totalBills) msg+=`🧾 บิลทั้งหมด ${totalBills} บิล\n`;
+  if(newMembers>0) msg+=`🆕 สมาชิกใหม่ ${newMembers} คน`;
   msg+=`\n\n#revenue #shift_kkc`;
   return msg;
 }
@@ -4345,13 +4359,29 @@ function renderSummaryScreen(date){
   ${row('disc10','ส่วนลด 10% พนักงาน',r.disc10,'var(--red)')}
   ${row('discMember','ส่วนลดสมาชิกใหม่ 50%',r.discMember,'var(--red)')}
   ${row('newMembers','สมาชิกใหม่',r.newMembers,'#6020c0','คน','จำนวนคนสมัครวันนี้')}
-  ${sec('สวัสดิการเครื่องดื่ม','#2a7ab0')}
-  ${row('staffDrinkAmt','จำนวนเงินสวัสดิการ',r.staffDrinkAmt,'#2a7ab0','฿','หักจากยอดขายอัตโนมัติ')}
-  <div style="padding:6px 16px 10px;background:var(--surface)">
-    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">รายละเอียดสวัสดิการ (ชื่อเมนู / พนักงาน)</div>
-    <textarea id="ss-staffDrinkNote" placeholder="เช่น ลาเต้เย็น 2 แก้ว — น้อง A, น้อง B"
-      onchange="updateSummaryField('${date}','staffDrinkNote',this.value)"
-      style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none;resize:none;height:60px">${esc(r.staffDrinkNote||'')}</textarea>
+  ${sec('☕ สวัสดิการพนักงาน','#2a7ab0')}
+  <div style="padding:8px 16px;background:var(--surface)">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:6px">รายการสวัสดิการ — ชื่อพนักงาน + เมนู + ราคา (หักจากยอดอัตโนมัติ)</div>
+    <div id="ss-staff-drinks">
+    ${(()=>{
+      const drinks=r.staffDrinks||[];
+      if(!drinks.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0">ยังไม่มีรายการ</div>';
+      return drinks.map((d,i)=>`
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+          <input type="text" value="${escAttr(d.name||'')}" placeholder="ชื่อพนง." id="sd-name-${i}"
+            style="flex:1;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+          <input type="text" value="${escAttr(d.item||'')}" placeholder="เมนู" id="sd-item-${i}"
+            style="flex:1;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--font);outline:none">
+          <input type="number" value="${d.price||''}" placeholder="฿" id="sd-price-${i}"
+            style="width:65px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-size:12px;color:#2a7ab0;font-family:var(--mono);font-weight:600;outline:none;text-align:right">
+          <button onclick="removeStaffDrink('${date}',${i})" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:4px 8px;font-size:11px;cursor:pointer">✕</button>
+        </div>`).join('');
+    })()}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+      <button onclick="addStaffDrink('${date}')" style="background:#e8f0fe;color:#2a7ab0;border:none;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">+ เพิ่มรายการ</button>
+      ${(()=>{const drinks=r.staffDrinks||[];const total=drinks.reduce((s,d)=>s+(parseFloat(d.price)||0),0);return total>0?`<div style="font-size:12px;font-weight:700;color:#2a7ab0;margin-left:auto">รวม ${fmtBaht(total)} ฿</div>`:''})()}
+    </div>
   </div>
 
   ${sec('รายการเสีย / ทำหก','var(--red)')}
@@ -4364,8 +4394,13 @@ function renderSummaryScreen(date){
   </div>
 
   ${sec('ทำลายบิล / ยกเลิก','var(--amber)')}
-  ${row('void_','ทำลายบิล (Void)',r.void_,'var(--amber)')}
+  ${row('void_','ทำลายบิล (Void) — จำนวนเงิน',r.void_,'var(--amber)')}
+  ${row('voidCount','จำนวนบิลที่ทำลาย',r.voidCount,'var(--amber)','บิล')}
   ${row('cancel','ยกเลิกรายการ (Cancel)',r.cancel,'var(--amber)')}
+
+  ${sec('💰 รอบการขาย','var(--text)')}
+  ${row('actualCash','จำนวนเงินจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
+  ${row('totalBills','บิลทั้งหมด',r.totalBills,'var(--text)','บิล')}
 
   <div style="margin:12px;border-radius:var(--rl);overflow:hidden;border:1.5px solid var(--green-mid)">
     <div style="background:var(--green);padding:10px 16px;font-size:13px;font-weight:700;color:#fff">สรุปยอด</div>
@@ -4387,13 +4422,22 @@ function renderSummaryScreen(date){
       <span style="font-size:15px;font-weight:700">รวมสุทธิ</span>
       <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--green)">${netRevenue.toLocaleString()} ฿</span>
     </div>
-    <div style="padding:12px 16px;background:var(--green-light);display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--green)">ยอดคงเหลือในเก๊ะ</div>
-        <div style="font-size:10px;color:var(--text2)">เปิด ${openCash.toLocaleString()} + สด ${cashIn.toLocaleString()} − void/cancel</div>
-      </div>
-      <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">${cashRemain.toLocaleString()} ฿</span>
-    </div>
+    ${(()=>{
+      const expectedCash=openCash+cashIn;
+      const actualCash=parseFloat(r.actualCash)||0;
+      const cashDiff=actualCash?actualCash-expectedCash:0;
+      const totalBills=parseInt(r.totalBills)||0;
+      return `
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">เงินสดเริ่มต้น</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(openCash)} ฿</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">ยอดขายเงินสด</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(cashIn)} ฿</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="font-weight:600">จำนวนเงินที่ควรมี</span><span style="font-family:var(--mono);font-weight:700">${fmtBaht(expectedCash)} ฿</span></div>
+      ${actualCash?`
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">จำนวนเงินจริงในลิ้นชัก</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(actualCash)} ฿</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>ส่วนต่าง</span><span style="color:${cashDiff===0?'var(--green)':cashDiff>0?'#2a7ab0':'var(--red)'};font-family:var(--mono)">${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} ฿</span></div>`:''}
+      ${totalBills?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="color:var(--text2)">บิลทั้งหมด</span><span style="font-family:var(--mono);font-weight:600">${totalBills} บิล</span></div>`:''}
+    </div>`;
+    })()}
     ${newMembers>0?`<div style="padding:10px 16px;background:#f0e8ff;font-size:13px;font-weight:600;color:#6a20c0">สมาชิกใหม่วันนี้ ${newMembers} คน</div>`:''}
     ${recordedBy?`<div style="padding:8px 16px;background:var(--surface2);font-size:11px;color:var(--text2)">คีย์โดย ${esc(recordedBy)}</div>`:''}
   </div>
@@ -4411,11 +4455,40 @@ function updateSummaryField(date,field,val){
   if(!revenueLog[date]) revenueLog[date]={};
   const strFields=['recordedBy','note','notes','staffDrinkNote','spillNote'];
   revenueLog[date][field]=strFields.includes(field)?String(val):(isNaN(parseFloat(val))?0:parseFloat(val));
-  // auto-sync: สวัสดิการเครื่องดื่ม = สวัสดิการพนง.
-  if(field==='staffDrinkAmt') revenueLog[date].discStaff=parseFloat(val)||0;
-  if(field==='discStaff') revenueLog[date].staffDrinkAmt=parseFloat(val)||0;
   saveRevenueLog();
   renderSummaryScreen(date);
+}
+function addStaffDrink(date){
+  if(!revenueLog[date]) revenueLog[date]={};
+  if(!revenueLog[date].staffDrinks) revenueLog[date].staffDrinks=[];
+  revenueLog[date].staffDrinks.push({name:'',item:'',price:0});
+  saveRevenueLog();renderSummaryScreen(date);
+  setTimeout(()=>{const i=revenueLog[date].staffDrinks.length-1;document.getElementById('sd-name-'+i)?.focus();},100);
+}
+function removeStaffDrink(date,idx){
+  if(!revenueLog[date]?.staffDrinks)return;
+  revenueLog[date].staffDrinks.splice(idx,1);
+  syncStaffDrinkTotal(date);
+  saveRevenueLog();renderSummaryScreen(date);
+}
+function saveStaffDrinks(date){
+  if(!revenueLog[date]) revenueLog[date]={};
+  const drinks=revenueLog[date].staffDrinks||[];
+  drinks.forEach((d,i)=>{
+    d.name=document.getElementById('sd-name-'+i)?.value?.trim()||'';
+    d.item=document.getElementById('sd-item-'+i)?.value?.trim()||'';
+    d.price=parseFloat(document.getElementById('sd-price-'+i)?.value)||0;
+  });
+  revenueLog[date].staffDrinks=drinks.filter(d=>d.name||d.item||d.price);
+  syncStaffDrinkTotal(date);
+  saveRevenueLog();
+}
+function syncStaffDrinkTotal(date){
+  const drinks=revenueLog[date]?.staffDrinks||[];
+  const total=drinks.reduce((s,d)=>s+(parseFloat(d.price)||0),0);
+  if(!revenueLog[date]) revenueLog[date]={};
+  revenueLog[date].staffDrinkAmt=total;
+  revenueLog[date].discStaff=total;
 }
 
 function sendMorningCash(date){
@@ -4432,6 +4505,7 @@ function sendMorningCash(date){
 }
 
 function sendSummaryTelegram(date){
+  saveStaffDrinks(date); // sync staff drinks before sending
   const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   toast('กำลังส่ง...');
