@@ -659,6 +659,7 @@ const LS = {
   customMenus:'shiftv3_custommenus'
 };
 
+const TG_DEFAULTS={token:'8612555113:AAFl5hG68Tjoj01b01si-YWL8M6iPw_SQjI',chatId:'-1003775060614',stockTopicId:'42',revenueTopicId:'5'};
 let entries=[], customItems=[], settings={}, minStock={}, historyData={};
 let itemPrices={}, bakeryItems=[], menuPriceOverrides={}, customMenus=[];
 let currentRole='', currentTab='dashboard', editId=null;
@@ -669,6 +670,7 @@ function load(){
   try{entries=JSON.parse(localStorage.getItem(LS.entries)||'[]')}catch(e){entries=[]}
   try{customItems=JSON.parse(localStorage.getItem(LS.custom)||'[]')}catch(e){customItems=[]}
   try{settings=JSON.parse(localStorage.getItem(LS.settings)||'{}')}catch(e){settings={}}
+  settings={...TG_DEFAULTS,...settings};
   try{minStock=JSON.parse(localStorage.getItem(LS.minstock)||'{}')}catch(e){minStock={}}
   try{historyData=JSON.parse(localStorage.getItem(LS.history)||'{}')}catch(e){historyData={}}
   try{itemPrices=JSON.parse(localStorage.getItem(LS.itemPrices)||'{}')}catch(e){itemPrices={}}
@@ -983,7 +985,7 @@ function tickCountdown(){
     // ถึงเวลาปิดร้าน — ส่งสรุปรายวันอัตโนมัติ
     window._closingSummarySent=true;
     banner.classList.add('hidden');
-    if(settings.token&&settings.chatId&&typeof buildDailySummaryMsg==='function'){
+    if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)&&typeof buildDailySummaryMsg==='function'){
       sendTgStock('🔔 ถึงเวลาปิดร้านแล้ว!\n'+buildDailySummaryMsg());
       toast('ส่งสรุปปิดร้านอัตโนมัติแล้ว ✓');
     }
@@ -1450,11 +1452,11 @@ function renderSettings(){
 
   <div class="setting-group">
     <div class="setting-group-title">Telegram</div>
-    <div class="setting-row"><label>Bot Token</label><input type="text" id="s-token" value="${escAttr(s.token||'')}" placeholder="8612555113:AAF..."></div>
-    <div class="setting-row"><label>Chat ID (กลุ่ม)</label><input type="text" id="s-chatid" value="${escAttr(s.chatId||'')}" placeholder="เช่น -1001234567890"></div>
-    <div style="padding:6px 16px;font-size:10px;color:var(--text3);background:var(--surface2);border-bottom:0.5px solid var(--border)">Forum Topics — ใส่ Topic ID เพื่อส่งแยก topic (ว่างไว้ = ส่งรวม)</div>
-    <div class="setting-row"><label>📦 Topic ID สต็อก</label><input type="text" id="s-stock-topic" value="${escAttr(s.stockTopicId||'')}" placeholder="เช่น 620" style="width:100px"></div>
-    <div class="setting-row"><label>💵 Topic ID รายรับ</label><input type="text" id="s-revenue-topic" value="${escAttr(s.revenueTopicId||'')}" placeholder="เช่น 621" style="width:100px"></div>
+    <div style="padding:10px 16px;font-size:12px;color:var(--green2);font-weight:600">ตั้งค่าอัตโนมัติแล้ว ✓</div>
+    <input type="hidden" id="s-token" value="${escAttr(s.token||'')}">
+    <input type="hidden" id="s-chatid" value="${escAttr(s.chatId||'')}">
+    <input type="hidden" id="s-stock-topic" value="${escAttr(s.stockTopicId||'')}">
+    <input type="hidden" id="s-revenue-topic" value="${escAttr(s.revenueTopicId||'')}">
   </div>
 
   <div class="setting-group">
@@ -2069,7 +2071,7 @@ function deductStockFromSales(date){
 }
 
 function sendSalesTelegram(date){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const sales=salesLog[date]||{};
   function getSalesQty(v){return typeof v==='object'?((v.in||0)+(v.online||0)):(v||0);}
@@ -2470,7 +2472,7 @@ function buildReportText(mode, date){
 }
 
 function sendReportTelegram(mode,date){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   toast('กำลังส่ง...');
   sendTelegramMsg(buildReportText(mode,date)).then(r=>{
@@ -2677,7 +2679,7 @@ async function saveStockEntry(){
   saveEntries();addHistory(entry);
   checkMinStockAlert(entry.name,qty,entry.unit);
   // auto-notify Telegram
-  if(settings.token&&settings.chatId){
+  if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
     const icon=selectedStatus==='out'?'🔴':selectedStatus==='low'?'⚠️':'✅';
     const expInfo=expDate&&expDate!=='NO_EXP'?`\nหมดอายุ: ${fmt(expDate)}`:'';
     sendTgStock(`${icon} เช็คสต็อก: ${entry.name}\nเหลือ: ${qty} ${entry.unit} · สถานะ: ${selectedStatus==='ok'?'ปกติ':selectedStatus==='low'?'น้อย':'หมด'}${expInfo}${note?'\nหมายเหตุ: '+note:''}\n#check #shift_kkc`);
@@ -2708,7 +2710,7 @@ function viewPhoto(src){
 function checkMinStockAlert(name,qty,unit){
   const ms=minStock[name]||{min:0};
   const minVal=parseFloat(ms.min)||0;
-  if(minVal>0&&parseFloat(qty)<=minVal&&settings.token&&settings.chatId){
+  if(minVal>0&&parseFloat(qty)<=minVal&&(settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
     const msg=`⚠️ สต็อกใกล้หมด SHIFT KKC\n${name}\nเหลือ: ${qty} ${unit}\nต่ำกว่า Min: ${minVal} ${unit}\nควรสั่งล็อตใหม่\n#minstock #shift_kkc`;
     sendTgStock(msg);
   }
@@ -2837,7 +2839,7 @@ async function saveReceiveEntry(){
   }
 
   // Telegram auto-notify
-  if(settings.token&&settings.chatId){
+  if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
     const msg=`📦 รับของเข้า SHIFT KKC\n${activeDrawerItem.name}\nจำนวน: ${qty} ${activeDrawerItem.unit}${supplier?'\nจาก: '+supplier:''}${priceTotal?'\nราคา: '+priceTotal+' ฿'+(pricePerUnit?' ('+pricePerUnit+' ฿/'+activeDrawerItem.unit+')':''):''}${expDate?'\nหมดอายุ: '+fmt(expDate):''}\n#receive #shift_kkc`;
     sendTgStock(msg);
   }
@@ -2890,7 +2892,7 @@ async function saveLossEntry(){
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
   // auto-notify Telegram
-  if(settings.token&&settings.chatId){
+  if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
     sendTgStock(`🗑 บันทึกของเสีย: ${entry.name}\nจำนวน: ${qty} ${entry.unit}\nสาเหตุ: ${selectedLossReason}${note?'\nหมายเหตุ: '+note:''}\n#loss #shift_kkc`);
   }
   if(settings.scriptUrl)pushToSheets('saveEntry',{entry}).catch(()=>{});
@@ -3195,7 +3197,8 @@ function addCustomItem(cat){
 // TELEGRAM
 // ══════════════════════════════════════════════════════════
 function sendTelegramMsg(msg,topicId){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId)return Promise.resolve({ok:false,description:'ยังไม่ได้ตั้งค่า Telegram'});
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),15000);
@@ -3207,12 +3210,12 @@ function sendTelegramMsg(msg,topicId){
   }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
 }
 // helper: ส่งไป topic สต็อก
-function sendTgStock(msg){return sendTelegramMsg(msg,settings.stockTopicId);}
+function sendTgStock(msg){return sendTelegramMsg(msg,settings.stockTopicId||TG_DEFAULTS.stockTopicId);}
 // helper: ส่งไป topic รายรับ
-function sendTgRevenue(msg){return sendTelegramMsg(msg,settings.revenueTopicId);}
+function sendTgRevenue(msg){return sendTelegramMsg(msg,settings.revenueTopicId||TG_DEFAULTS.revenueTopicId);}
 
 function sendTelegram(){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){
     alert('ยังไม่ได้ตั้งค่า Telegram\nไปที่แท็บ ตั้งค่า ใส่ Bot Token และ Chat ID');return;
   }
@@ -3279,7 +3282,7 @@ function sendTelegram(){
 }
 
 function sendOrderTelegram(){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const lbn=latestByName();
   const items=[];
@@ -3557,7 +3560,7 @@ function buildRevenueSummaryText(date){
 }
 
 function sendRevenueTelegram(date){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   toast('กำลังส่ง...');
   sendTgRevenue(buildRevenueSummaryText(date)).then(r=>{
@@ -3898,7 +3901,7 @@ function renderMgrApprove(){
 }
 
 function approveOrder(items){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   // อ่านค่า qty จาก input
   const finalItems=items.map((item,i)=>{
     const qtyEl=document.getElementById('approve-qty-'+i);
@@ -4290,7 +4293,7 @@ function sendMorningCash(date){
 }
 
 function sendSummaryTelegram(date){
-  const {token,chatId}=settings;
+  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   toast('กำลังส่ง...');
   sendTgRevenue(buildRevenueSummaryText(date)).then(r=>{
