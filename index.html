@@ -3615,10 +3615,10 @@ function renderMgrRevenue(){
       <div style="font-size:10px;color:var(--text3)">เก็บ 5,000 ฿ ในลิ้นชัก</div></div>
     <div style="font-family:var(--mono);font-size:17px;font-weight:700;color:#2a7ab0">${fmtBaht(actualCash-5000)} ฿</div>
   </div>
-  ${r.bankDepositPhoto?`<div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
-    <div style="font-size:10px;color:var(--text2);margin-bottom:4px">หลักฐานนำเงินออก</div>
-    <img src="${r.bankDepositPhoto}" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--r)">
-  </div>`:''}`:''}
+  ${(()=>{const ph=r.bankDepositPhotos||[];const old=r.bankDepositPhoto?[r.bankDepositPhoto]:[];const all=[...ph,...old];return all.length?`<div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:10px;color:var(--text2);margin-bottom:4px">หลักฐานนำเงินออก (${all.length} รูป)</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">${all.map(p=>`<img src="${p}" style="width:calc(50% - 2px);height:120px;object-fit:cover;border-radius:var(--r)">`).join('')}</div>
+  </div>`:''})()}`:''}
   ${sec('ทำลายบิล (Void)','var(--amber)')}
   ${field('voidAllBills','ทำลายบิล (จำนวน)',voidAllBills,'','var(--amber)','บิล')}
   ${field('voidAllAmt','ทำลายบิล (บาท)',voidAllAmt,'','var(--amber)')}
@@ -4542,14 +4542,26 @@ function renderSummaryScreen(date){
     </div>
     ${_dep>0?`
     <div style="margin-top:10px">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปหลักฐาน (แสดงวันที่/เวลา/สถานที่)</div>
-      ${r.bankDepositPhoto?`
-      <div style="position:relative;display:inline-block;width:100%">
-        <img src="${r.bankDepositPhoto}" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">
-        <button onclick="deleteDepositPhoto('${date}')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer">✕</button>
-      </div>`:`
-      <button onclick="document.getElementById('ss-deposit-photo').click()" style="width:100%;padding:14px;background:var(--surface2);border:1.5px dashed #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปหลักฐาน</button>
-      <input type="file" id="ss-deposit-photo" accept="image/*" capture="environment" style="display:none" onchange="handleDepositPhoto(this,'${date}')">`}
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปหลักฐานเงิน (แสดงวันที่/เวลา/สถานที่)</div>
+      ${(()=>{
+        const photos=r.bankDepositPhotos||[];
+        // backward compat: old single photo
+        if(!photos.length&&r.bankDepositPhoto) photos.push(r.bankDepositPhoto);
+        let out='';
+        if(photos.length){
+          out+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+          photos.forEach((p,i)=>{
+            out+=\`<div style="position:relative;width:calc(50% - 3px)">
+              <img src="\${p}" style="width:100%;height:120px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">
+              <button onclick="deleteDepositPhoto('\${date}',\${i})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>
+            </div>\`;
+          });
+          out+='</div>';
+        }
+        out+=\`<button onclick="document.getElementById('ss-deposit-photo').click()" style="width:100%;padding:12px;background:var(--surface2);border:1.5px dashed #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปเพิ่ม\${photos.length?' ('+photos.length+' รูป)':''}</button>
+        <input type="file" id="ss-deposit-photo" accept="image/*" capture="environment" style="display:none" onchange="handleDepositPhoto(this,'\${date}')">\`;
+        return out;
+      })()}
     </div>`:''}
   </div>`:''})()}
 
@@ -4605,7 +4617,7 @@ function renderSummaryScreen(date){
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:3px"><span>ส่วนต่าง</span><span style="color:${cashDiff===0?'var(--green)':cashDiff>0?'#2a7ab0':'var(--red)'};font-family:var(--mono)">${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} ฿</span></div>
       ${actualCash>5000?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid #2a7ab0"><span style="color:#2a7ab0">🏦 นำออกเข้าธนาคาร</span><span style="color:#2a7ab0;font-family:var(--mono)">${fmtBaht(actualCash-5000)} ฿</span></div>
       <div style="font-size:10px;color:var(--text3)">เก็บในลิ้นชัก 5,000 ฿</div>`:''}`:''}
-      ${r.bankDepositPhoto?`<img src="${r.bankDepositPhoto}" style="width:100%;max-height:160px;object-fit:cover;border-radius:var(--r);margin-top:6px">`:''}
+      ${(()=>{const ph=r.bankDepositPhotos||[];const old=r.bankDepositPhoto?[r.bankDepositPhoto]:[];const all=[...ph,...old];return all.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${all.map(p=>`<img src="${p}" style="width:calc(50% - 2px);height:100px;object-fit:cover;border-radius:var(--r)">`).join('')}</div>`:''})()}
       ${totalBills?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="color:var(--text2)">บิลทั้งหมด</span><span style="font-family:var(--mono);font-weight:600">${totalBills} บิล</span></div>`:''}
     </div>
     ${voidAllAmt||cancelBillAmt?`<div style="padding:8px 16px;background:#fff8f0;border-bottom:0.5px solid var(--border)">
@@ -4747,14 +4759,22 @@ function handleDepositPhoto(input,date){
 function saveDepositPhoto(canvas,date){
   const b64=canvas.toDataURL('image/jpeg',0.7);
   if(!revenueLog[date])revenueLog[date]={};
-  revenueLog[date].bankDepositPhoto=b64;
+  if(!revenueLog[date].bankDepositPhotos)revenueLog[date].bankDepositPhotos=[];
+  // migrate old single photo
+  if(revenueLog[date].bankDepositPhoto){
+    revenueLog[date].bankDepositPhotos.unshift(revenueLog[date].bankDepositPhoto);
+    delete revenueLog[date].bankDepositPhoto;
+  }
+  revenueLog[date].bankDepositPhotos.push(b64);
   saveRevenueLog();
   renderSummaryScreen(date);
   toast('บันทึกรูปหลักฐานแล้ว ✓');
 }
-function deleteDepositPhoto(date){
+function deleteDepositPhoto(date,idx){
   if(!revenueLog[date])return;
-  delete revenueLog[date].bankDepositPhoto;
+  const photos=revenueLog[date].bankDepositPhotos||[];
+  if(idx>=0&&idx<photos.length) photos.splice(idx,1);
+  revenueLog[date].bankDepositPhotos=photos;
   saveRevenueLog();
   renderSummaryScreen(date);
   toast('ลบรูปแล้ว');
