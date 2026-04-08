@@ -4565,26 +4565,6 @@ function renderSummaryScreen(date){
   ${row('refund','คืนเงิน',r.refund,'var(--text)')}
   ${row('cashInOut','เงินเข้า/เงินออก',r.cashInOut,'var(--text)')}
   ${row('actualCash','จำนวนจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
-  <div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
-    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปเงินจริงในลิ้นชัก</div>
-    ${(()=>{
-      const photos=r.cashDrawerPhotos||[];
-      let out='';
-      if(photos.length){
-        out+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
-        photos.forEach((p,i)=>{
-          out+='<div style="position:relative;width:calc(50% - 3px)">'
-            +'<img src="'+p+'" style="width:100%;height:120px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">'
-            +'<button onclick="deleteCashDrawerPhoto(\''+date+'\','+i+')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>'
-            +'</div>';
-        });
-        out+='</div>';
-      }
-      out+='<button onclick="document.getElementById(\'ss-drawer-photo\').click()" style="width:100%;padding:12px;background:var(--surface2);border:1.5px dashed var(--text2);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปเงินในลิ้นชัก'+(photos.length?' ('+photos.length+' รูป)':'')+'</button>'
-        +'<input type="file" id="ss-drawer-photo" accept="image/*" capture="environment" style="display:none" onchange="handleCashDrawerPhoto(this,\''+date+'\')">';
-      return out;
-    })()}
-  </div>
   ${row('totalBills','บิลทั้งหมด',r.totalBills,'var(--text)','บิล')}
 
   ${sec('📸 ถ่ายรูปเงินสดคู่บิล')}
