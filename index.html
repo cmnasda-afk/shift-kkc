@@ -2269,11 +2269,11 @@ function renderMgrReport(){
 // ─────────────────────────────────────────────────────────
 function renderDailyReport(date){
   const r=revenueLog[date]||{};
-  const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0, delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0, discStaff=parseFloat(r.discStaff)||0;
-  const newMembers=parseInt(r.newMembers)||0, void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
+  const cashIn=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0, delivery=parseFloat(r.payLineMan)||0;
+  const disc10=parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0, discMember=0, discStaff=parseFloat(r.staffWelfareAmt)||parseFloat(r.discStaff)||0;
+  const newMembers=0, void_=parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0, cancel=parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0;
   const openCash=parseFloat(r.openCash)||0;
-  const totalBefore=cashIn+qrOnline+delivery;
+  const totalBefore=cashIn+delivery;
   const totalDisc=disc10+discMember+discStaff;
   const net=totalBefore-totalDisc-void_-cancel;
   const cashRemain=openCash+cashIn-void_-cancel;
@@ -2287,7 +2287,7 @@ function renderDailyReport(date){
   });
 
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const hasRevenue=totalBefore>0;
+  const hasRevenue=totalBefore>0||qrOnline>0;
 
   const row=(label,val,color,unit='฿',bold=false)=>val>0?`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:0.5px solid var(--border);background:var(--surface)">
@@ -2351,11 +2351,11 @@ function renderWeeklyReport(refDate){
   let totalNet=0, totalCash=0, totalQR=0, totalDel=0, totalDisc=0, totalMembers=0, totalCups=0;
   const dayRows=days.map(date=>{
     const r=revenueLog[date]||{};
-    const cash=parseFloat(r.cashIn)||0, qr=parseFloat(r.qrOnline)||0, del=parseFloat(r.delivery)||0;
-    const disc=(parseFloat(r.disc10)||0)+(parseFloat(r.discMember)||0)+(parseFloat(r.discStaff)||0);
-    const voidCancel=(parseFloat(r.void_)||0)+(parseFloat(r.cancel)||0);
-    const net=cash+qr+del-disc-voidCancel;
-    const mem=parseInt(r.newMembers)||0;
+    const cash=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0, qr=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0, del=parseFloat(r.payLineMan)||0;
+    const disc=(parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0)+(parseFloat(r.staffWelfareAmt)||parseFloat(r.discStaff)||0);
+    const voidCancel=(parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0)+(parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0);
+    const net=cash+del-disc-voidCancel;
+    const mem=0;
     const sales=salesLog[date]||{};
     let cups=0;
     Object.values(sales).forEach(v=>{
@@ -2481,10 +2481,10 @@ function buildReportText(mode, date){
     let msg=`📈 รายงานรายสัปดาห์ SHIFT KKC\n${wLabel}\n${'='.repeat(28)}\n`;
     days.forEach(d=>{
       const r=revenueLog[d]||{};
-      const cash=parseFloat(r.cashIn)||0,qr=parseFloat(r.qrOnline)||0,del=parseFloat(r.delivery)||0;
-      const disc=(parseFloat(r.disc10)||0)+(parseFloat(r.discMember)||0)+(parseFloat(r.discStaff)||0);
-      const net=cash+qr+del-disc-(parseFloat(r.void_)||0)-(parseFloat(r.cancel)||0);
-      const mem=parseInt(r.newMembers)||0;
+      const cash=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0,qr=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0,del=parseFloat(r.payLineMan)||0;
+      const disc=(parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0)+(parseFloat(r.staffWelfareAmt)||parseFloat(r.discStaff)||0);
+      const net=cash+del-disc-(parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0)-(parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0);
+      const mem=0;
       const dayName=new Date(d+'T00:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'});
       if(cash>0||qr>0){msg+=`${dayName}: ${net.toLocaleString()} ฿`;if(mem>0)msg+=` (สมาชิก ${mem} คน)`;msg+='\n';}
       totalNet+=net; totalMembers+=mem;
@@ -3502,18 +3502,30 @@ function renderMgrRevenue(){
   const r=revenueLog[selDate]||{};
   const isEdit=window._revEditMode===selDate;
 
-  const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0, delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
-  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
-  const discStaff=staffDrinkAmt;
-  const newMembers=parseInt(r.newMembers)||0, void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
+  // backward compat: read new fields with fallback to old
+  const payCashAmt=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0;
+  const payTransfer=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0;
+  const payLineMan=parseFloat(r.payLineMan)||0;
+  const payCreditCard=parseFloat(r.payCreditCard)||0;
+  const payOther=parseFloat(r.payOther)||0;
+  const payCashCups=parseInt(r.payCashCups)||0;
+  const staffWelfareCups=parseInt(r.staffWelfareCups)||0;
+  const staffWelfareAmt=parseFloat(r.staffWelfareAmt)||parseFloat(r.staffDrinkAmt)||0;
+  const tenantDisc=parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0;
+  const voidAllBills=parseInt(r.voidAllBills)||parseInt(r.voidCount)||0;
+  const voidAllAmt=parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0;
+  const cancelBills=parseInt(r.cancelBills)||0;
+  const cancelBillAmt=parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0;
   const openCash=parseFloat(r.openCash)||0;
-  const totalBefore=cashIn+qrOnline+delivery;
-  const totalDisc=disc10+discMember+discStaff;
-  const netRevenue=totalBefore-totalDisc-void_-cancel;
-  const cashRemain=openCash+cashIn-void_-cancel;
+  const refund=parseFloat(r.refund)||0;
+  const cashInOut=parseFloat(r.cashInOut)||0;
+  const netSales=payCashAmt+payLineMan+payCreditCard+payOther+payTransfer;
+  const expectedCash=openCash+payCashAmt-refund+cashInOut;
+  const actualCash=parseFloat(r.actualCash)||0;
+  const cashDiff=actualCash?actualCash-expectedCash:0;
+  const totalBills=parseInt(r.totalBills)||0;
   const dateLabel=new Date(selDate+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const hasData=totalBefore>0||openCash>0||newMembers>0;
+  const hasData=netSales>0||openCash>0;
 
   // row: read-only หรือ editable
   const field=(id,label,val,hint,color,unit='฿')=>{
@@ -3565,56 +3577,50 @@ function renderMgrRevenue(){
     <div style="font-size:11px;color:var(--text3)">หน้าแรก → สรุปยอดประจำวัน → กรอกข้อมูล</div>
   </div>`:''}
   ${sec('รอบเช้า — เงินในเก๊ะตอนเปิด')}
-  ${field('openCash','เงินในเก๊ะตอนเปิด',openCash,'นับเงินยกมาจากเมื่อวาน','var(--text)')}
-  ${sec('ยอดขาย','var(--green)')}
-  ${field('cashIn','เงินสดหน้าร้าน',cashIn,'','#1a5a30')}
-  ${field('qrOnline','โอน / QR Code',qrOnline,'','#1a5a30')}
-  ${field('delivery','เดลิเวอรี่',delivery,'Grab / Foodpanda / Line Man','#1a5a30')}
-  ${sec('ส่วนลด','var(--red)')}
-  ${field('disc10','ส่วนลด 10% พนักงาน',disc10,'','var(--red)')}
-  ${field('discMember','ส่วนลดสมาชิกใหม่ 50%',discMember,'','var(--red)')}
-  ${field('staffDrinkAmt','สวัสดิการพนง. (เครื่องดื่ม)',staffDrinkAmt||discStaff,'หักจากยอดอัตโนมัติ','var(--red)')}
-  ${field('newMembers','สมาชิกใหม่',newMembers,'จำนวนคนสมัครวันนี้','#6020c0','คน')}
-  ${sec('ทำลายบิล / ยกเลิก','var(--amber)')}
-  ${field('void_','ทำลายบิล (Void)',void_,'','var(--amber)')}
-  ${field('cancel','ยกเลิกรายการ (Cancel)',cancel,'','var(--amber)')}
+  ${field('openCash','เงินสดเริ่มต้น',openCash,'ที่กะเช้านับ','var(--text)')}
+  ${sec('ส่วนลด & โปรโมชั่น','var(--red)')}
+  ${field('staffWelfareAmt','สวัสดิการพนักงาน',staffWelfareAmt,''+staffWelfareCups+' แก้ว','var(--red)')}
+  ${field('tenantDisc','ผู้เช่า ลด 10%',tenantDisc,'','var(--red)')}
+  ${sec('ยอดขายตามการชำระเงิน','var(--green)')}
+  ${field('payCashAmt','เงินสด',payCashAmt,''+payCashCups+' แก้ว','#1a5a30')}
+  ${field('payLineMan','เงินสดจาก LINE MAN',payLineMan,'','#1a5a30')}
+  ${field('payCreditCard','บัตรเครดิต',payCreditCard,'','#1a5a30')}
+  ${field('payOther','การชำระแบบอื่นๆ',payOther,'','#1a5a30')}
+  ${field('payTransfer','โอน',payTransfer,'','#1a5a30')}
+  ${sec('ทำลายบิล (Void)','var(--amber)')}
+  ${field('voidAllAmt','ทำลายบิลทั้งหมด',voidAllAmt,''+voidAllBills+' บิล','var(--amber)')}
+  ${field('voidMenuAmt','ทำลายรายเมนู',parseFloat(r.voidMenuAmt)||0,'','var(--amber)')}
+  ${field('voidPaidAmt','ทำลายบิลที่ชำระเงินแล้ว',parseFloat(r.voidPaidAmt)||0,'','var(--amber)')}
+  ${sec('ยกเลิกเมนู','var(--amber)')}
+  ${field('cancelBillAmt','ยกเลิกบิล',cancelBillAmt,''+cancelBills+' บิล','var(--amber)')}
+  ${field('cancelItemAmt','ยกเลิกรายการ',parseFloat(r.cancelItemAmt)||0,'','var(--amber)')}
   <div style="margin:12px;border-radius:var(--rl);overflow:hidden;border:1.5px solid var(--green-mid)">
     <div style="background:var(--green);padding:11px 16px;font-size:13px;font-weight:700;color:#fff">สรุปยอด</div>
     <div style="background:var(--surface)">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:0.5px solid var(--border)">
-        <div style="padding:10px 8px;text-align:center;border-right:0.5px solid var(--border)">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">เงินสด</div>
-          <div style="font-family:var(--mono);font-size:16px;font-weight:700">${cashIn.toLocaleString()}</div>
-        </div>
-        <div style="padding:10px 8px;text-align:center;border-right:0.5px solid var(--border)">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">โอน/QR</div>
-          <div style="font-family:var(--mono);font-size:16px;font-weight:700">${qrOnline.toLocaleString()}</div>
-        </div>
-        <div style="padding:10px 8px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">เดลิเวอรี่</div>
-          <div style="font-family:var(--mono);font-size:16px;font-weight:700">${delivery.toLocaleString()}</div>
-        </div>
+      <div style="padding:10px 16px;border-bottom:0.5px solid var(--border);font-size:12px">
+        ${payCashAmt?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">เงินสด ${payCashCups} แก้ว</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payCashAmt)} ฿</span></div>`:''}
+        ${payLineMan?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">LINE MAN</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payLineMan)} ฿</span></div>`:''}
+        ${payCreditCard?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">บัตรเครดิต</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payCreditCard)} ฿</span></div>`:''}
+        ${payOther?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">อื่นๆ</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payOther)} ฿</span></div>`:''}
+        ${payTransfer?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">โอน</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payTransfer)} ฿</span></div>`:''}
       </div>
-      ${totalDisc+void_+cancel>0?`<div style="padding:8px 14px;background:var(--surface2);border-bottom:0.5px solid var(--border);font-size:12px">
-        <div style="color:var(--text2);margin-bottom:4px">ยอดรวมก่อนหัก: <b>${totalBefore.toLocaleString()} ฿</b></div>
-        ${disc10>0?`<div style="display:flex;justify-content:space-between;padding:1px 0;color:var(--text2)"><span>ส่วนลด 10%</span><span style="color:var(--red);font-weight:600">−${disc10.toLocaleString()} ฿</span></div>`:''}
-        ${discMember>0?`<div style="display:flex;justify-content:space-between;padding:1px 0;color:var(--text2)"><span>ส่วนลดสมาชิกใหม่</span><span style="color:var(--red);font-weight:600">−${discMember.toLocaleString()} ฿</span></div>`:''}
-        ${discStaff>0?`<div style="display:flex;justify-content:space-between;padding:1px 0;color:var(--text2)"><span>สวัสดิการพนง.</span><span style="color:var(--red);font-weight:600">−${discStaff.toLocaleString()} ฿</span></div>`:''}
-        ${void_>0?`<div style="display:flex;justify-content:space-between;padding:1px 0;color:var(--text2)"><span>ทำลายบิล</span><span style="color:var(--amber);font-weight:600">−${void_.toLocaleString()} ฿</span></div>`:''}
-        ${cancel>0?`<div style="display:flex;justify-content:space-between;padding:1px 0;color:var(--text2)"><span>ยกเลิกรายการ</span><span style="color:var(--amber);font-weight:600">−${cancel.toLocaleString()} ฿</span></div>`:''}
-      </div>`:''}
       <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:0.5px solid var(--border)">
-        <span style="font-size:15px;font-weight:700">รวมสุทธิ</span>
-        <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">${netRevenue.toLocaleString()} ฿</span>
+        <span style="font-size:15px;font-weight:700">ยอดขายสุทธิ</span>
+        <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">${fmtBaht(netSales)} ฿</span>
       </div>
-      <div style="padding:12px 16px;background:var(--green-light);display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--green)">ยอดคงเหลือในเก๊ะ</div>
-          <div style="font-size:10px;color:var(--text2)">เปิด ${openCash.toLocaleString()} + สด ${cashIn.toLocaleString()} − void/cancel</div>
-        </div>
-        <span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">${cashRemain.toLocaleString()} ฿</span>
+      <div style="padding:10px 16px;border-bottom:0.5px solid var(--border);font-size:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">เงินสดเริ่มต้น</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(openCash)} ฿</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">ยอดขายเงินสด</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(payCashAmt)} ฿</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="font-weight:600">จำนวนเงินที่ควรมี</span><span style="font-family:var(--mono);font-weight:700">${fmtBaht(expectedCash)} ฿</span></div>
+        ${actualCash?`
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--text2)">จำนวนจริงในลิ้นชัก</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(actualCash)} ฿</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700"><span>ส่วนต่าง</span><span style="color:${cashDiff===0?'var(--green)':cashDiff>0?'#2a7ab0':'var(--red)'};font-family:var(--mono)">${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} ฿</span></div>`:''}
+        ${totalBills?`<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="color:var(--text2)">บิลทั้งหมด</span><span style="font-family:var(--mono);font-weight:600">${totalBills} บิล</span></div>`:''}
       </div>
-      ${newMembers>0?`<div style="padding:10px 16px;background:#f0e8ff;font-size:13px;font-weight:600;color:#6a20c0">สมาชิกใหม่วันนี้ ${newMembers} คน</div>`:''}
+      ${voidAllAmt||cancelBillAmt?`<div style="padding:8px 16px;background:#fff8f0;font-size:12px">
+        ${voidAllAmt?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:var(--amber);font-weight:600">ทำลายบิล ${voidAllBills} บิล</span><span style="font-family:var(--mono);font-weight:600;color:var(--amber)">${fmtBaht(voidAllAmt)} ฿</span></div>`:''}
+        ${cancelBillAmt?`<div style="display:flex;justify-content:space-between"><span style="color:var(--amber);font-weight:600">ยกเลิก ${cancelBills} บิล</span><span style="font-family:var(--mono);font-weight:600;color:var(--amber)">${fmtBaht(cancelBillAmt)} ฿</span></div>`:''}
+      </div>`:''}
     </div>
   </div>
   <div style="padding:0 12px 8px;display:flex;gap:8px">
@@ -3627,15 +3633,13 @@ function renderMgrRevenue(){
 function toggleRevenueEdit(date){
   if(window._revEditMode===date){
     // บันทึก
-    ['openCash','cashIn','qrOnline','delivery','disc10','discMember','staffDrinkAmt','spillAmt','newMembers','void_','cancel'].forEach(f=>{
+    ['openCash','staffWelfareAmt','tenantDisc','payCashAmt','payLineMan','payCreditCard','payOther','payTransfer','voidAllAmt','voidAllBills','voidMenuAmt','voidPaidAmt','cancelBillAmt','cancelBills','cancelItemAmt'].forEach(f=>{
       const el=document.getElementById('rev-'+f);
       if(el){
         if(!revenueLog[date])revenueLog[date]={};
         revenueLog[date][f]=parseFloat(el.value)||parseInt(el.value)||0;
       }
     });
-    // auto-sync: สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
-    if(revenueLog[date]) revenueLog[date].discStaff=parseFloat(revenueLog[date].staffDrinkAmt)||0;
     saveRevenueLog();
     window._revEditMode=null;
     toast('บันทึกแก้ไขแล้ว ✓');
@@ -3650,62 +3654,69 @@ function fmtBaht(n){return n%1===0?n.toLocaleString():n.toLocaleString(undefined
 
 function buildRevenueSummaryText(date){
   const r=revenueLog[date]||{};
-  const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0, delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
-  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
-  const discStaff=staffDrinkAmt; // สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
-  const newMembers=parseInt(r.newMembers)||0, void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
+  // backward compat: read new fields with fallback to old
+  const staffWelfareCups=parseInt(r.staffWelfareCups)||0;
+  const staffWelfareAmt=parseFloat(r.staffWelfareAmt)||parseFloat(r.staffDrinkAmt)||0;
+  const tenantDisc=parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0;
+  const payCashCups=parseInt(r.payCashCups)||0;
+  const payCashAmt=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0;
+  const payLineMan=parseFloat(r.payLineMan)||0;
+  const payCreditCard=parseFloat(r.payCreditCard)||0;
+  const payOther=parseFloat(r.payOther)||0;
+  const payTransfer=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0;
+  const netSales=payCashAmt+payLineMan+payCreditCard+payOther+payTransfer;
   const openCash=parseFloat(r.openCash)||0;
-  const totalBefore=cashIn+qrOnline+delivery;
-  const totalDisc=disc10+discMember+discStaff;
-  const netRevenue=totalBefore-totalDisc-void_-cancel;
-  const cashRemain=openCash+cashIn-void_-cancel;
+  const refund=parseFloat(r.refund)||0;
+  const cashInOut=parseFloat(r.cashInOut)||0;
+  const expectedCash=openCash+payCashAmt-refund+cashInOut;
+  const actualCash=parseFloat(r.actualCash)||0;
+  const totalBills=parseInt(r.totalBills)||0;
+  const voidAllBills=parseInt(r.voidAllBills)||parseInt(r.voidCount)||0;
+  const voidAllAmt=parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0;
+  const cancelBills=parseInt(r.cancelBills)||0;
+  const cancelBillAmt=parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0;
+
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   let msg=`💵 สรุปยอดรายรับ SHIFT KKC\n${dateLabel}\n${'='.repeat(28)}\n`;
   if(r.recordedBy) msg+=`\nคีย์โดย: ${r.recordedBy}\n`;
-  msg+=`\nยอดขาย\n- เงินสดหน้าร้าน = ${fmtBaht(cashIn)} บาท\n- โอน/QR = ${fmtBaht(qrOnline)} บาท\n`;
-  if(delivery>0) msg+=`- เดลิเวอรี่ = ${fmtBaht(delivery)} บาท\n`;
-  msg+=`\nยอดรวมก่อนหัก = ${fmtBaht(totalBefore)}บาท\n`;
-  if(disc10>0) msg+=`- ส่วนลด 10% = -${fmtBaht(disc10)} บาท\n`;
-  if(discMember>0) msg+=`- ส่วนลดสมาชิกใหม่ 50% = -${fmtBaht(discMember)} บาท\n`;
-  if(discStaff>0) msg+=`- สวัสดิการพนง. = -${fmtBaht(discStaff)} บาท\n`;
+  // ส่วนลด
+  if(staffWelfareAmt||tenantDisc){
+    msg+=`\n🏷️ ส่วนลด & โปรโมชั่น\n`;
+    if(staffWelfareAmt) msg+=`- สวัสดิการพนักงาน ${staffWelfareCups} แก้ว = ${fmtBaht(staffWelfareAmt)} บาท\n`;
+    if(tenantDisc) msg+=`- ผู้เช่า ลด 10% = ${fmtBaht(tenantDisc)} บาท\n`;
+  }
   const drinks=r.staffDrinks||[];
-  if(staffDrinkAmt>0||drinks.length){
-    msg+=`\n☕ สวัสดิการเครื่องดื่ม = ${fmtBaht(staffDrinkAmt)} บาท\n`;
+  if(drinks.length){
+    msg+=`\n☕ สวัสดิการเครื่องดื่ม\n`;
     drinks.forEach(d=>{
       if(d.name||d.item) msg+=`→ ${d.item||'—'} - ${d.name||'—'}${d.price?' ('+fmtBaht(d.price)+' ฿)':''}\n`;
     });
   }
-  const spillAmt=parseFloat(r.spillAmt)||0;
-  if(spillAmt>0){
-    msg+=`\n🗑 รายการเสีย = ${fmtBaht(spillAmt)} บาท\n`;
-    if(r.spillNote){
-      r.spillNote.split('\n').forEach(line=>{
-        if(line.trim()) msg+=`→ ${line.trim()}\n`;
-      });
-    }
-  }
-  if(void_>0){
-    const vc=parseInt(r.voidCount)||0;
-    msg+=`\n- ทำลายบิล = -${fmtBaht(void_)} บาท${vc?' ('+vc+' บิล)':''}\n`;
-  }
-  if(cancel>0) msg+=`- ยกเลิกรายการ = -${fmtBaht(cancel)} บาท\n`;
-  msg+=`\n💰 รวมสุทธิ ${fmtBaht(netRevenue)}บาท\n`;
+  // ยอดขาย
+  msg+=`\n💳 ยอดขายตามการชำระเงิน\n`;
+  if(payCashAmt) msg+=`- เงินสด ${payCashCups} แก้ว = ${fmtBaht(payCashAmt)} บาท\n`;
+  if(payLineMan) msg+=`- เงินสดจาก LINE MAN = ${fmtBaht(payLineMan)} บาท\n`;
+  if(payCreditCard) msg+=`- บัตรเครดิต = ${fmtBaht(payCreditCard)} บาท\n`;
+  if(payOther) msg+=`- การชำระแบบอื่นๆ = ${fmtBaht(payOther)} บาท\n`;
+  if(payTransfer) msg+=`- โอน = ${fmtBaht(payTransfer)} บาท\n`;
+  msg+=`\n💰 ยอดขายสุทธิ = ${fmtBaht(netSales)} บาท\n`;
   // รอบการขาย
-  const expectedCash=openCash+cashIn;
-  const actualCash=parseFloat(r.actualCash)||0;
+  msg+=`\n💰 รอบการขาย\n`;
+  msg+=`- เงินสดเริ่มต้น = ${fmtBaht(openCash)} บาท\n`;
+  msg+=`- ยอดขายเงินสด = ${fmtBaht(payCashAmt)} บาท\n`;
+  if(refund) msg+=`- คืนเงิน = ${fmtBaht(refund)} บาท\n`;
+  if(cashInOut) msg+=`- เงินเข้า/เงินออก = ${fmtBaht(cashInOut)} บาท\n`;
+  msg+=`- จำนวนเงินที่ควรมี = ${fmtBaht(expectedCash)} บาท\n`;
   if(actualCash){
     const cashDiff=actualCash-expectedCash;
-    msg+=`🏦 จำนวนเงินที่ควรมี ${fmtBaht(expectedCash)} บาท\n`;
-    msg+=`🏦 จำนวนเงินจริงในลิ้นชัก ${fmtBaht(actualCash)} บาท\n`;
-    msg+=`📊 ส่วนต่าง ${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} บาท\n`;
-  } else {
-    msg+=`🏦 ยอดคงเหลือในเก๊ะ ${fmtBaht(cashRemain)} บาท\n`;
+    msg+=`- จำนวนจริงในลิ้นชัก = ${fmtBaht(actualCash)} บาท\n`;
+    msg+=`- ส่วนต่าง = ${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} บาท\n`;
   }
-  const totalBills=parseInt(r.totalBills)||0;
   if(totalBills) msg+=`🧾 บิลทั้งหมด ${totalBills} บิล\n`;
-  if(newMembers>0) msg+=`🆕 สมาชิกใหม่ ${newMembers} คน`;
-  msg+=`\n\n#revenue #shift_kkc`;
+  // void/cancel
+  if(voidAllAmt) msg+=`\n🚫 ทำลายบิล ${voidAllBills} บิล = ${fmtBaht(voidAllAmt)} บาท\n`;
+  if(cancelBillAmt) msg+=`❌ ยกเลิก ${cancelBills} บิล = ${fmtBaht(cancelBillAmt)} บาท\n`;
+  msg+=`\n#revenue #shift_kkc`;
   return msg;
 }
 
@@ -4201,14 +4212,20 @@ function buildDailySummaryMsg(){
   // รายรับ (ถ้ามี)
   const rev=revenueLog[today];
   if(rev){
-    const cashIn=parseFloat(rev.cashIn)||0,qrOnline=parseFloat(rev.qrOnline)||0,delivery=parseFloat(rev.delivery)||0;
-    const total=cashIn+qrOnline+delivery;
+    const cashIn=parseFloat(rev.payCashAmt)||parseFloat(rev.cashIn)||0;
+    const transfer=parseFloat(rev.payTransfer)||parseFloat(rev.qrOnline)||0;
+    const lineMan=parseFloat(rev.payLineMan)||0;
+    const creditCard=parseFloat(rev.payCreditCard)||0;
+    const other=parseFloat(rev.payOther)||0;
+    const total=cashIn+transfer+lineMan+creditCard+other;
     if(total>0){
       msg+=`\n💵 รายรับ\n`;
-      msg+=`• เงินสด: ฿${cashIn.toLocaleString()}\n`;
-      msg+=`• QR/โอน: ฿${qrOnline.toLocaleString()}\n`;
-      if(delivery>0) msg+=`• Delivery: ฿${delivery.toLocaleString()}\n`;
-      msg+=`• รวม: ฿${total.toLocaleString()}\n`;
+      if(cashIn) msg+=`• เงินสด: ฿${cashIn.toLocaleString()}\n`;
+      if(transfer) msg+=`• โอน: ฿${transfer.toLocaleString()}\n`;
+      if(lineMan) msg+=`• LINE MAN: ฿${lineMan.toLocaleString()}\n`;
+      if(creditCard) msg+=`• บัตรเครดิต: ฿${creditCard.toLocaleString()}\n`;
+      if(other) msg+=`• อื่นๆ: ฿${other.toLocaleString()}\n`;
+      msg+=`• ยอดขายสุทธิ: ฿${total.toLocaleString()}\n`;
     }
   }
 
@@ -4297,18 +4314,39 @@ function renderSummaryScreen(date){
   if(!isManager && date!==today){ date=today; }
 
   const r=revenueLog[date]||{};
-  const cashIn=parseFloat(r.cashIn)||0, qrOnline=parseFloat(r.qrOnline)||0;
-  const delivery=parseFloat(r.delivery)||0;
-  const disc10=parseFloat(r.disc10)||0, discMember=parseFloat(r.discMember)||0;
-  const staffDrinkAmt=parseFloat(r.staffDrinkAmt)||0;
-  const discStaff=staffDrinkAmt; // sync: สวัสดิการพนง. = สวัสดิการเครื่องดื่ม
-  const newMembers=parseInt(r.newMembers)||0;
-  const void_=parseFloat(r.void_)||0, cancel=parseFloat(r.cancel)||0;
+  // ─── ส่วนลด & โปรโมชั่น ───
+  const staffWelfareCups=parseInt(r.staffWelfareCups)||0;
+  const staffWelfareAmt=parseFloat(r.staffWelfareAmt)||parseFloat(r.staffDrinkAmt)||0;
+  const tenantDisc=parseFloat(r.tenantDisc)||parseFloat(r.disc10)||0;
+  // ─── ยอดขายตามการชำระเงิน ───
+  const payCashCups=parseInt(r.payCashCups)||0;
+  const payCashAmt=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0;
+  const payLineMan=parseFloat(r.payLineMan)||0;
+  const payCreditCard=parseFloat(r.payCreditCard)||0;
+  const payOther=parseFloat(r.payOther)||0;
+  const payTransfer=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0;
+  const netSales=payCashAmt+payLineMan+payCreditCard+payOther+payTransfer;
+  // ─── ยอดขายตามประเภทออร์เดอร์ ───
+  const dineInCups=parseInt(r.dineInCups)||0;
+  const dineInAmt=parseFloat(r.dineInAmt)||0;
+  // ─── รอบการขาย ───
   const openCash=parseFloat(r.openCash)||0;
-  const totalBefore=cashIn+qrOnline+delivery;
-  const totalDisc=disc10+discMember+discStaff;
-  const netRevenue=totalBefore-totalDisc-void_-cancel;
-  const cashRemain=openCash+cashIn-void_-cancel;
+  const refund=parseFloat(r.refund)||0;
+  const cashInOut=parseFloat(r.cashInOut)||0;
+  const expectedCash=openCash+payCashAmt-refund+cashInOut;
+  const actualCash=parseFloat(r.actualCash)||0;
+  const cashDiff=actualCash?actualCash-expectedCash:0;
+  const totalBills=parseInt(r.totalBills)||0;
+  // ─── ทำลายบิล ───
+  const voidAllBills=parseInt(r.voidAllBills)||parseInt(r.voidCount)||0;
+  const voidAllAmt=parseFloat(r.voidAllAmt)||parseFloat(r.void_)||0;
+  const voidMenuAmt=parseFloat(r.voidMenuAmt)||0;
+  const voidPaidAmt=parseFloat(r.voidPaidAmt)||0;
+  // ─── ยกเลิก ───
+  const cancelBills=parseInt(r.cancelBills)||0;
+  const cancelBillAmt=parseFloat(r.cancelBillAmt)||parseFloat(r.cancel)||0;
+  const cancelItemAmt=parseFloat(r.cancelItemAmt)||0;
+
   const recordedBy=r.recordedBy||'';
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
@@ -4322,11 +4360,32 @@ function renderSummaryScreen(date){
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
         <input type="text" inputmode="decimal" id="ss-${id}" value="${val||''}" placeholder="0"
           onchange="updateSummaryField('${date}','${id}',this.value)"
-          style="width:${unit==='คน'?70:100}px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:15px;font-weight:700;font-family:var(--mono);color:${color||'var(--text)'};text-align:right;outline:none">
+          style="width:${unit==='บิล'?70:100}px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:15px;font-weight:700;font-family:var(--mono);color:${color||'var(--text)'};text-align:right;outline:none">
         <span style="font-size:11px;color:var(--text2);min-width:16px">${unit||'฿'}</span>
       </div>
     </div>`;
-  const sec=(title,color)=>`<div style="background:var(--bg2);padding:8px 16px;font-size:11px;font-weight:700;color:${color||'var(--text2)'};letter-spacing:1px;text-transform:uppercase;border-top:0.5px solid var(--border);border-bottom:0.5px solid var(--border)">${title}</div>`;
+  const row2=(id1,id2,label,val1,val2,color,unit1,unit2,hint)=>`
+    <div style="border-bottom:0.5px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:8px;background:var(--surface)">
+      <div style="width:4px;height:36px;border-radius:2px;background:${color||'var(--border2)'};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:${color||'var(--text)'};">${label}</div>
+        ${hint?`<div style="font-size:10px;color:var(--text3);margin-top:1px">${hint}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+        <input type="text" inputmode="decimal" id="ss-${id1}" value="${val1||''}" placeholder="0"
+          onchange="updateSummaryField('${date}','${id1}',this.value)"
+          style="width:50px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 6px;font-size:14px;font-weight:700;font-family:var(--mono);color:${color||'var(--text)'};text-align:right;outline:none">
+        <span style="font-size:10px;color:var(--text2)">${unit1||'แก้ว'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+        <input type="text" inputmode="decimal" id="ss-${id2}" value="${val2||''}" placeholder="0"
+          onchange="updateSummaryField('${date}','${id2}',this.value)"
+          style="width:80px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 6px;font-size:14px;font-weight:700;font-family:var(--mono);color:${color||'var(--text)'};text-align:right;outline:none">
+        <span style="font-size:10px;color:var(--text2)">${unit2||'฿'}</span>
+      </div>
+    </div>`;
+  const sec=(title,color)=>`<div style="background:var(--bg2);padding:8px 16px;font-size:11px;font-weight:700;color:${color||'var(--text2)'};letter-spacing:1px;border-top:0.5px solid var(--border);border-bottom:0.5px solid var(--border)">${title}</div>`;
+  const infoRow=(label,val,bold)=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px${bold?';font-weight:700':''}"><span style="color:${bold?'var(--text)':'var(--text2)'}">${label}</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(val)} ฿</span></div>`;
 
   let html=`
   <div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
@@ -4346,22 +4405,17 @@ function renderSummaryScreen(date){
       style="width:130px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;font-family:var(--font);color:var(--green);text-align:right;outline:none">
   </div>
 
-  ${sec('☀️ รอบเช้า 07:00 — เงินในเก๊ะ')}
-  ${row('openCash','เงินในเก๊ะตอนเปิด',r.openCash,'var(--text)','฿','นับเงินยกมาจากเมื่อวาน')}
+  ${sec('☀️ รอบเช้า — เงินในเก๊ะ')}
+  ${row('openCash','เงินสดเริ่มต้น',r.openCash,'var(--text)','฿','ที่กะเช้านับ')}
   <div style="padding:8px 16px;background:var(--surface)">
     <button onclick="sendMorningCash('${date}')" style="width:100%;background:#2a7ab0;color:#fff;border:none;border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">☀️ ส่งยอดเช้า (เงินในเก๊ะ) → Telegram</button>
   </div>
-  ${sec('🌙 รอบเย็น 17:00 — ยอดขาย','var(--green)')}
-  ${row('cashIn','เงินสดหน้าร้าน',r.cashIn,'#1a5a30')}
-  ${row('qrOnline','โอน / QR Code',r.qrOnline,'#1a5a30')}
-  ${row('delivery','เดลิเวอรี่',r.delivery,'#1a5a30','฿','Grab / Foodpanda / Line Man')}
-  ${sec('ส่วนลด','var(--red)')}
-  ${row('disc10','ส่วนลด 10% พนักงาน',r.disc10,'var(--red)')}
-  ${row('discMember','ส่วนลดสมาชิกใหม่ 50%',r.discMember,'var(--red)')}
-  ${row('newMembers','สมาชิกใหม่',r.newMembers,'#6020c0','คน','จำนวนคนสมัครวันนี้')}
-  ${sec('☕ สวัสดิการพนักงาน','#2a7ab0')}
-  <div style="padding:8px 16px;background:var(--surface)">
-    <div style="font-size:10px;color:var(--text3);margin-bottom:6px">รายการสวัสดิการ — ชื่อพนักงาน + เมนู + ราคา (หักจากยอดอัตโนมัติ)</div>
+
+  ${sec('🏷️ ส่วนลด & โปรโมชั่น')}
+  ${row2('staffWelfareCups','staffWelfareAmt','สวัสดิการพนักงาน',r.staffWelfareCups,r.staffWelfareAmt||r.staffDrinkAmt,'var(--red)','แก้ว','฿')}
+  ${row('tenantDisc','ผู้เช่า ลด 10%',r.tenantDisc||r.disc10,'var(--red)')}
+  <div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:6px">รายละเอียดสวัสดิการ — ชื่อพนักงาน + เมนู + ราคา</div>
     <div id="ss-staff-drinks">
     ${(()=>{
       const drinks=r.staffDrinks||[];
@@ -4384,61 +4438,72 @@ function renderSummaryScreen(date){
     </div>
   </div>
 
-  ${sec('รายการเสีย / ทำหก','var(--red)')}
-  ${row('spillAmt','มูลค่าเสียหาย',r.spillAmt,'var(--red)')}
-  <div style="padding:6px 16px 10px;background:var(--surface)">
-    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">อธิบายสาเหตุ (ทำหก / ผิดเมนู / อื่นๆ)</div>
-    <textarea id="ss-spillNote" placeholder="เช่น ลาเต้ร้อนทำหก 1 แก้ว, ชาเย็นผิดเมนู"
-      onchange="updateSummaryField('${date}','spillNote',this.value)"
-      style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--font);outline:none;resize:none;height:60px">${esc(r.spillNote||'')}</textarea>
+  ${sec('💳 ยอดขายตามการชำระเงิน')}
+  ${row2('payCashCups','payCashAmt','เงินสด',r.payCashCups,r.payCashAmt||r.cashIn,'#1a5a30','แก้ว','฿')}
+  ${row('payLineMan','เงินสดจาก LINE MAN',r.payLineMan,'#1a5a30')}
+  ${row('payCreditCard','บัตรเครดิต',r.payCreditCard,'#1a5a30')}
+  ${row('payOther','การชำระแบบอื่นๆ',r.payOther,'#1a5a30')}
+  ${row('payTransfer','โอน',r.payTransfer||r.qrOnline,'#1a5a30')}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--green-light);border-bottom:0.5px solid var(--border)">
+    <span style="font-size:13px;font-weight:700;color:var(--green)">ยอดขายสุทธิ</span>
+    <span style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green)">${fmtBaht(netSales)} ฿</span>
   </div>
 
-  ${sec('ทำลายบิล / ยกเลิก','var(--amber)')}
-  ${row('void_','ทำลายบิล (Void) — จำนวนเงิน',r.void_,'var(--amber)')}
-  ${row('voidCount','จำนวนบิลที่ทำลาย',r.voidCount,'var(--amber)','บิล')}
-  ${row('cancel','ยกเลิกรายการ (Cancel)',r.cancel,'var(--amber)')}
+  ${sec('🛒 ยอดขายตามประเภทออร์เดอร์')}
+  ${row2('dineInCups','dineInAmt','กินที่ร้าน',r.dineInCups,r.dineInAmt,'var(--text)','แก้ว','฿')}
 
-  ${sec('💰 รอบการขาย','var(--text)')}
-  ${row('actualCash','จำนวนเงินจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
+  ${sec('💰 รอบการขาย')}
+  ${row('refund','คืนเงิน',r.refund,'var(--text)')}
+  ${row('cashInOut','เงินเข้า/เงินออก',r.cashInOut,'var(--text)')}
+  ${row('actualCash','จำนวนจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
   ${row('totalBills','บิลทั้งหมด',r.totalBills,'var(--text)','บิล')}
+
+  ${sec('🚫 ทำลายบิล (Void)','var(--amber)')}
+  ${row2('voidAllBills','voidAllAmt','ทำลายบิลทั้งหมด',r.voidAllBills||r.voidCount,r.voidAllAmt||r.void_,'var(--amber)','บิล','฿')}
+  ${row('voidMenuAmt','ทำลายรายเมนู',r.voidMenuAmt,'var(--amber)')}
+  ${row('voidPaidAmt','ทำลายบิลที่ชำระเงินแล้ว',r.voidPaidAmt,'var(--amber)')}
+
+  ${sec('❌ ยกเลิกเมนู','var(--amber)')}
+  ${row2('cancelBills','cancelBillAmt','ยกเลิกบิล',r.cancelBills,r.cancelBillAmt||r.cancel,'var(--amber)','บิล','฿')}
+  ${row('cancelItemAmt','ยกเลิกรายการ',r.cancelItemAmt,'var(--amber)')}
 
   <div style="margin:12px;border-radius:var(--rl);overflow:hidden;border:1.5px solid var(--green-mid)">
     <div style="background:var(--green);padding:10px 16px;font-size:13px;font-weight:700;color:#fff">สรุปยอด</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--surface);border-bottom:0.5px solid var(--border)">
-      <div style="padding:10px 6px;text-align:center;border-right:0.5px solid var(--border)">
-        <div style="font-size:9px;color:var(--text2);margin-bottom:2px">เงินสด</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:700">${cashIn.toLocaleString()}</div>
-      </div>
-      <div style="padding:10px 6px;text-align:center;border-right:0.5px solid var(--border)">
-        <div style="font-size:9px;color:var(--text2);margin-bottom:2px">โอน/QR</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:700">${qrOnline.toLocaleString()}</div>
-      </div>
-      <div style="padding:10px 6px;text-align:center">
-        <div style="font-size:9px;color:var(--text2);margin-bottom:2px">เดลิเวอรี่</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:700">${delivery.toLocaleString()}</div>
-      </div>
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;font-weight:600">ยอดขายตามการชำระเงิน</div>
+      ${payCashAmt?infoRow('เงินสด ('+payCashCups+' แก้ว)',payCashAmt):''}
+      ${payLineMan?infoRow('เงินสดจาก LINE MAN',payLineMan):''}
+      ${payCreditCard?infoRow('บัตรเครดิต',payCreditCard):''}
+      ${payOther?infoRow('การชำระแบบอื่นๆ',payOther):''}
+      ${payTransfer?infoRow('โอน',payTransfer):''}
+      ${staffWelfareAmt||tenantDisc?`<div style="margin-top:4px;padding-top:4px;border-top:0.5px solid var(--border)">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:4px;font-weight:600">ส่วนลด</div>
+        ${staffWelfareAmt?infoRow('สวัสดิการพนักงาน '+staffWelfareCups+' แก้ว',staffWelfareAmt):''}
+        ${tenantDisc?infoRow('ผู้เช่า ลด 10%',tenantDisc):''}
+      </div>`:''}
     </div>
     <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:15px;font-weight:700">รวมสุทธิ</span>
-      <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--green)">${netRevenue.toLocaleString()} ฿</span>
+      <span style="font-size:15px;font-weight:700">ยอดขายสุทธิ</span>
+      <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--green)">${fmtBaht(netSales)} ฿</span>
     </div>
-    ${(()=>{
-      const expectedCash=openCash+cashIn;
-      const actualCash=parseFloat(r.actualCash)||0;
-      const cashDiff=actualCash?actualCash-expectedCash:0;
-      const totalBills=parseInt(r.totalBills)||0;
-      return `
     <div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">เงินสดเริ่มต้น</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(openCash)} ฿</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">ยอดขายเงินสด</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(cashIn)} ฿</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="font-weight:600">จำนวนเงินที่ควรมี</span><span style="font-family:var(--mono);font-weight:700">${fmtBaht(expectedCash)} ฿</span></div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;font-weight:600">รอบการขาย</div>
+      ${infoRow('เงินสดเริ่มต้น',openCash)}
+      ${infoRow('ยอดขายเงินสด',payCashAmt)}
+      ${refund?infoRow('คืนเงิน',refund):''}
+      ${cashInOut?infoRow('เงินเข้า/เงินออก',cashInOut):''}
+      <div style="padding-top:4px;border-top:0.5px solid var(--border);margin-top:4px">
+        ${infoRow('จำนวนเงินที่ควรมี',expectedCash,true)}
+      </div>
       ${actualCash?`
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text2)">จำนวนเงินจริงในลิ้นชัก</span><span style="font-family:var(--mono);font-weight:600">${fmtBaht(actualCash)} ฿</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>ส่วนต่าง</span><span style="color:${cashDiff===0?'var(--green)':cashDiff>0?'#2a7ab0':'var(--red)'};font-family:var(--mono)">${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} ฿</span></div>`:''}
-      ${totalBills?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="color:var(--text2)">บิลทั้งหมด</span><span style="font-family:var(--mono);font-weight:600">${totalBills} บิล</span></div>`:''}
-    </div>`;
-    })()}
-    ${newMembers>0?`<div style="padding:10px 16px;background:#f0e8ff;font-size:13px;font-weight:600;color:#6a20c0">สมาชิกใหม่วันนี้ ${newMembers} คน</div>`:''}
+      ${infoRow('จำนวนจริงในลิ้นชัก',actualCash)}
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:3px"><span>ส่วนต่าง</span><span style="color:${cashDiff===0?'var(--green)':cashDiff>0?'#2a7ab0':'var(--red)'};font-family:var(--mono)">${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} ฿</span></div>`:''}
+      ${totalBills?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;padding-top:4px;border-top:0.5px solid var(--border)"><span style="color:var(--text2)">บิลทั้งหมด</span><span style="font-family:var(--mono);font-weight:600">${totalBills} บิล</span></div>`:''}
+    </div>
+    ${voidAllAmt||cancelBillAmt?`<div style="padding:8px 16px;background:#fff8f0;border-bottom:0.5px solid var(--border)">
+      ${voidAllAmt?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span style="color:var(--amber);font-weight:600">ทำลายบิล ${voidAllBills} บิล</span><span style="font-family:var(--mono);font-weight:600;color:var(--amber)">${fmtBaht(voidAllAmt)} ฿</span></div>`:''}
+      ${cancelBillAmt?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--amber);font-weight:600">ยกเลิก ${cancelBills} บิล</span><span style="font-family:var(--mono);font-weight:600;color:var(--amber)">${fmtBaht(cancelBillAmt)} ฿</span></div>`:''}
+    </div>`:''}
     ${recordedBy?`<div style="padding:8px 16px;background:var(--surface2);font-size:11px;color:var(--text2)">คีย์โดย ${esc(recordedBy)}</div>`:''}
   </div>
   <div style="padding:0 12px 8px;display:flex;gap:8px">
@@ -4486,7 +4551,10 @@ function saveStaffDrinks(date){
 function syncStaffDrinkTotal(date){
   const drinks=revenueLog[date]?.staffDrinks||[];
   const total=drinks.reduce((s,d)=>s+(parseFloat(d.price)||0),0);
+  const cups=drinks.filter(d=>d.price>0).length;
   if(!revenueLog[date]) revenueLog[date]={};
+  revenueLog[date].staffWelfareAmt=total;
+  revenueLog[date].staffWelfareCups=cups;
   revenueLog[date].staffDrinkAmt=total;
   revenueLog[date].discStaff=total;
 }
