@@ -4869,17 +4869,26 @@ function handleCashDrawerPhoto(input,date){
       if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-      const barH=30;ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
-      ctx.fillText(new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'}),8,h-barH+20);
-      const b64=c.toDataURL('image/jpeg',0.7);
-      if(!revenueLog[date])revenueLog[date]={};
-      if(!revenueLog[date].cashDrawerPhotos)revenueLog[date].cashDrawerPhotos=[];
-      revenueLog[date].cashDrawerPhotos.push(b64);
-      saveRevenueLog();renderSummaryScreen(date);
-      toast('บันทึกรูปเงินในลิ้นชักแล้ว ✓');
+      const barH=50;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,h-barH,w,barH);
+      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
+      const ts=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
+      ctx.fillText(ts,10,h-barH+20);
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+          ctx.fillText('GPS: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5),10,h-barH+38);
+          _saveCashDrawerPhoto(c,date);
+        },()=>{ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);_saveCashDrawerPhoto(c,date);},{timeout:10000});
+      } else {ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);_saveCashDrawerPhoto(c,date);}
     };img.src=e.target.result;
   };reader.readAsDataURL(file);input.value='';
+}
+function _saveCashDrawerPhoto(canvas,date){
+  const b64=canvas.toDataURL('image/jpeg',0.7);
+  if(!revenueLog[date])revenueLog[date]={};
+  if(!revenueLog[date].cashDrawerPhotos)revenueLog[date].cashDrawerPhotos=[];
+  revenueLog[date].cashDrawerPhotos.push(b64);
+  saveRevenueLog();renderSummaryScreen(date);
+  toast('บันทึกรูปเงินในลิ้นชักแล้ว ✓');
 }
 function deleteCashDrawerPhoto(date,idx){
   if(!revenueLog[date])return;
@@ -4896,30 +4905,30 @@ function handleCashBillPhoto(input,date){
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      const maxW=800;
-      let w=img.width,h=img.height;
+      const maxW=800;let w=img.width,h=img.height;
       if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');
-      c.width=w;c.height=h;
-      const ctx=c.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
-      const barH=30;
-      ctx.fillStyle='rgba(0,0,0,0.5)';
-      ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
-      ctx.fillText(new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'}),8,h-barH+20);
-      const b64=c.toDataURL('image/jpeg',0.7);
-      if(!revenueLog[date])revenueLog[date]={};
-      if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
-      revenueLog[date].cashBillPhotos.push(b64);
-      saveRevenueLog();
-      renderSummaryScreen(date);
-      toast('บันทึกรูปแล้ว ✓');
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-  input.value='';
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+      const barH=50;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,h-barH,w,barH);
+      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
+      const ts=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
+      ctx.fillText(ts,10,h-barH+20);
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+          ctx.fillText('GPS: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5),10,h-barH+38);
+          _saveCashBillPhoto(c,date);
+        },()=>{ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);_saveCashBillPhoto(c,date);},{timeout:10000});
+      } else {ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);_saveCashBillPhoto(c,date);}
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);input.value='';
+}
+function _saveCashBillPhoto(canvas,date){
+  const b64=canvas.toDataURL('image/jpeg',0.7);
+  if(!revenueLog[date])revenueLog[date]={};
+  if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
+  revenueLog[date].cashBillPhotos.push(b64);
+  saveRevenueLog();renderSummaryScreen(date);
+  toast('บันทึกรูปแล้ว ✓');
 }
 function deleteCashBillPhoto(date,idx){
   if(!revenueLog[date])return;
