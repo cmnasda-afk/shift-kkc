@@ -4565,6 +4565,26 @@ function renderSummaryScreen(date){
   ${row('refund','คืนเงิน',r.refund,'var(--text)')}
   ${row('cashInOut','เงินเข้า/เงินออก',r.cashInOut,'var(--text)')}
   ${row('actualCash','จำนวนจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
+  <div style="padding:8px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปเงินจริงในลิ้นชัก</div>
+    ${(()=>{
+      const photos=r.cashDrawerPhotos||[];
+      let out='';
+      if(photos.length){
+        out+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+        photos.forEach((p,i)=>{
+          out+='<div style="position:relative;width:calc(50% - 3px)">'
+            +'<img src="'+p+'" style="width:100%;height:120px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">'
+            +'<button onclick="deleteCashDrawerPhoto(\''+date+'\','+i+')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>'
+            +'</div>';
+        });
+        out+='</div>';
+      }
+      out+='<button onclick="document.getElementById(\'ss-drawer-photo\').click()" style="width:100%;padding:12px;background:var(--surface2);border:1.5px dashed var(--text2);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปเงินในลิ้นชัก'+(photos.length?' ('+photos.length+' รูป)':'')+'</button>'
+        +'<input type="file" id="ss-drawer-photo" accept="image/*" capture="environment" style="display:none" onchange="handleCashDrawerPhoto(this,\''+date+'\')">';
+      return out;
+    })()}
+  </div>
   ${row('totalBills','บิลทั้งหมด',r.totalBills,'var(--text)','บิล')}
 
   ${sec('📸 ถ่ายรูปเงินสดคู่บิล')}
@@ -4836,6 +4856,37 @@ function saveMgrDepositPhoto(canvas,date){
   revenueLog[date].bankDepositPhotos.push(b64);
   saveRevenueLog();renderContent('mgr-revenue');
   toast('บันทึกรูปหลักฐานแล้ว ✓');
+}
+
+function handleCashDrawerPhoto(input,date){
+  const file=input.files?.[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const maxW=800;let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+      const barH=30;ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,h-barH,w,barH);
+      ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
+      ctx.fillText(new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'}),8,h-barH+20);
+      const b64=c.toDataURL('image/jpeg',0.7);
+      if(!revenueLog[date])revenueLog[date]={};
+      if(!revenueLog[date].cashDrawerPhotos)revenueLog[date].cashDrawerPhotos=[];
+      revenueLog[date].cashDrawerPhotos.push(b64);
+      saveRevenueLog();renderSummaryScreen(date);
+      toast('บันทึกรูปเงินในลิ้นชักแล้ว ✓');
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);input.value='';
+}
+function deleteCashDrawerPhoto(date,idx){
+  if(!revenueLog[date])return;
+  const photos=revenueLog[date].cashDrawerPhotos||[];
+  if(idx>=0&&idx<photos.length) photos.splice(idx,1);
+  revenueLog[date].cashDrawerPhotos=photos;
+  saveRevenueLog();renderSummaryScreen(date);toast('ลบรูปแล้ว');
 }
 
 function handleCashBillPhoto(input,date){
