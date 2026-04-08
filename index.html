@@ -3599,7 +3599,11 @@ function renderMgrRevenue(){
   ${field('payTransfer','โอน',payTransfer,'','#1a5a30')}
   ${sec('ยอดขายตามประเภทออร์เดอร์')}
   ${field('dineInCups','กินที่ร้าน (แก้ว)',parseInt(r.dineInCups)||0,'','var(--text)','แก้ว')}
-  ${field('dineInAmt','กินที่ร้าน (บาท)',parseFloat(r.dineInAmt)||0,'','var(--text)')}
+  ${field('dineInAmt','กินที่ร้าน (บาท)',parseFloat(r.dineInAmt)||0,'ยอดรายรับรวมทั้งวัน','#1a5a30')}
+  ${(()=>{const v=parseFloat(r.dineInAmt)||0;return v>0&&!isEdit?`<div style="padding:14px 16px;background:var(--green-light);border-bottom:1.5px solid var(--green-mid);display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:15px;font-weight:700;color:var(--green)">ยอดรายรับรวมทั้งวัน</div><div style="font-size:10px;color:var(--text2);margin-top:2px">${parseInt(r.dineInCups)||0} แก้ว</div></div>
+    <span style="font-family:var(--mono);font-size:26px;font-weight:700;color:var(--green)">${fmtBaht(v)} ฿</span>
+  </div>`:''})()}
   ${sec('รอบการขาย')}
   ${field('refund','คืนเงิน',refund,'','var(--text)')}
   ${field('cashInOut','เงินเข้า/เงินออก',cashInOut,'','var(--text)')}
