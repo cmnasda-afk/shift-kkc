@@ -4545,21 +4545,20 @@ function renderSummaryScreen(date){
       <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปหลักฐานเงิน (แสดงวันที่/เวลา/สถานที่)</div>
       ${(()=>{
         const photos=r.bankDepositPhotos||[];
-        // backward compat: old single photo
         if(!photos.length&&r.bankDepositPhoto) photos.push(r.bankDepositPhoto);
         let out='';
         if(photos.length){
           out+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
           photos.forEach((p,i)=>{
-            out+=\`<div style="position:relative;width:calc(50% - 3px)">
-              <img src="\${p}" style="width:100%;height:120px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">
-              <button onclick="deleteDepositPhoto('\${date}',\${i})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>
-            </div>\`;
+            out+='<div style="position:relative;width:calc(50% - 3px)">'
+              +'<img src="'+p+'" style="width:100%;height:120px;object-fit:cover;border-radius:var(--r);border:0.5px solid var(--border)">'
+              +'<button onclick="deleteDepositPhoto(\''+date+'\','+i+')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>'
+              +'</div>';
           });
           out+='</div>';
         }
-        out+=\`<button onclick="document.getElementById('ss-deposit-photo').click()" style="width:100%;padding:12px;background:var(--surface2);border:1.5px dashed #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปเพิ่ม\${photos.length?' ('+photos.length+' รูป)':''}</button>
-        <input type="file" id="ss-deposit-photo" accept="image/*" capture="environment" style="display:none" onchange="handleDepositPhoto(this,'\${date}')">\`;
+        out+='<button onclick="document.getElementById(\'ss-deposit-photo\').click()" style="width:100%;padding:12px;background:var(--surface2);border:1.5px dashed #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปเพิ่ม'+(photos.length?' ('+photos.length+' รูป)':'')+'</button>'
+          +'<input type="file" id="ss-deposit-photo" accept="image/*" capture="environment" style="display:none" onchange="handleDepositPhoto(this,\''+date+'\')">';
         return out;
       })()}
     </div>`:''}
