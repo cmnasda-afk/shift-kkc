@@ -3580,20 +3580,32 @@ function renderMgrRevenue(){
   ${sec('รอบเช้า — เงินในเก๊ะตอนเปิด')}
   ${field('openCash','เงินสดเริ่มต้น',openCash,'ที่กะเช้านับ','var(--text)')}
   ${sec('ส่วนลด & โปรโมชั่น','var(--red)')}
-  ${field('staffWelfareAmt','สวัสดิการพนักงาน',staffWelfareAmt,''+staffWelfareCups+' แก้ว','var(--red)')}
+  ${field('staffWelfareCups','สวัสดิการพนักงาน (แก้ว)',staffWelfareCups,'','var(--red)','แก้ว')}
+  ${field('staffWelfareAmt','สวัสดิการพนักงาน (บาท)',staffWelfareAmt,'','var(--red)')}
   ${field('tenantDisc','ผู้เช่า ลด 10%',tenantDisc,'','var(--red)')}
   ${sec('ยอดขายตามการชำระเงิน','var(--green)')}
-  ${field('payCashAmt','เงินสด',payCashAmt,''+payCashCups+' แก้ว','#1a5a30')}
+  ${field('payCashCups','เงินสด (แก้ว)',payCashCups,'','#1a5a30','แก้ว')}
+  ${field('payCashAmt','เงินสด (บาท)',payCashAmt,'','#1a5a30')}
   ${field('payLineMan','เงินสดจาก LINE MAN',payLineMan,'','#1a5a30')}
   ${field('payCreditCard','บัตรเครดิต',payCreditCard,'','#1a5a30')}
   ${field('payOther','การชำระแบบอื่นๆ',payOther,'','#1a5a30')}
   ${field('payTransfer','โอน',payTransfer,'','#1a5a30')}
+  ${sec('ยอดขายตามประเภทออร์เดอร์')}
+  ${field('dineInCups','กินที่ร้าน (แก้ว)',parseInt(r.dineInCups)||0,'','var(--text)','แก้ว')}
+  ${field('dineInAmt','กินที่ร้าน (บาท)',parseFloat(r.dineInAmt)||0,'','var(--text)')}
+  ${sec('รอบการขาย')}
+  ${field('refund','คืนเงิน',refund,'','var(--text)')}
+  ${field('cashInOut','เงินเข้า/เงินออก',cashInOut,'','var(--text)')}
+  ${field('actualCash','จำนวนจริงในลิ้นชัก',actualCash,'นับเงินสดจริงตอนปิดร้าน','var(--text)')}
+  ${field('totalBills','บิลทั้งหมด',totalBills,'','var(--text)','บิล')}
   ${sec('ทำลายบิล (Void)','var(--amber)')}
-  ${field('voidAllAmt','ทำลายบิลทั้งหมด',voidAllAmt,''+voidAllBills+' บิล','var(--amber)')}
+  ${field('voidAllBills','ทำลายบิล (จำนวน)',voidAllBills,'','var(--amber)','บิล')}
+  ${field('voidAllAmt','ทำลายบิล (บาท)',voidAllAmt,'','var(--amber)')}
   ${field('voidMenuAmt','ทำลายรายเมนู',parseFloat(r.voidMenuAmt)||0,'','var(--amber)')}
   ${field('voidPaidAmt','ทำลายบิลที่ชำระเงินแล้ว',parseFloat(r.voidPaidAmt)||0,'','var(--amber)')}
   ${sec('ยกเลิกเมนู','var(--amber)')}
-  ${field('cancelBillAmt','ยกเลิกบิล',cancelBillAmt,''+cancelBills+' บิล','var(--amber)')}
+  ${field('cancelBills','ยกเลิกบิล (จำนวน)',cancelBills,'','var(--amber)','บิล')}
+  ${field('cancelBillAmt','ยกเลิกบิล (บาท)',cancelBillAmt,'','var(--amber)')}
   ${field('cancelItemAmt','ยกเลิกรายการ',parseFloat(r.cancelItemAmt)||0,'','var(--amber)')}
   <div style="margin:12px;border-radius:var(--rl);overflow:hidden;border:1.5px solid var(--green-mid)">
     <div style="background:var(--green);padding:11px 16px;font-size:13px;font-weight:700;color:#fff">สรุปยอด</div>
@@ -3640,7 +3652,7 @@ function renderMgrRevenue(){
 function toggleRevenueEdit(date){
   if(window._revEditMode===date){
     // บันทึก
-    ['openCash','staffWelfareAmt','tenantDisc','payCashAmt','payLineMan','payCreditCard','payOther','payTransfer','voidAllAmt','voidAllBills','voidMenuAmt','voidPaidAmt','cancelBillAmt','cancelBills','cancelItemAmt'].forEach(f=>{
+    ['openCash','staffWelfareCups','staffWelfareAmt','tenantDisc','payCashCups','payCashAmt','payLineMan','payCreditCard','payOther','payTransfer','dineInCups','dineInAmt','refund','cashInOut','actualCash','totalBills','voidAllBills','voidAllAmt','voidMenuAmt','voidPaidAmt','cancelBills','cancelBillAmt','cancelItemAmt'].forEach(f=>{
       const el=document.getElementById('rev-'+f);
       if(el){
         if(!revenueLog[date])revenueLog[date]={};
