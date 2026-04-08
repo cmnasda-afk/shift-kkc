@@ -3350,6 +3350,30 @@ function sendTelegramMsg(msg,topicId){
 function sendTgStock(msg){return sendTelegramMsg(msg,settings.stockTopicId||TG_DEFAULTS.stockTopicId);}
 // helper: ส่งไป topic รายรับ
 function sendTgRevenue(msg){return sendTelegramMsg(msg,settings.revenueTopicId||TG_DEFAULTS.revenueTopicId);}
+// helper: ส่งรูปไป topic รายรับ
+function sendTgRevenuePhoto(b64,caption){
+  if(_tgTestMode)return Promise.resolve({ok:true});
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.chatId||TG_DEFAULTS.chatId;
+  const topicId=settings.revenueTopicId||TG_DEFAULTS.revenueTopicId;
+  if(!token||!chatId)return Promise.resolve({ok:false});
+  // convert base64 to blob
+  const byteStr=atob(b64.split(',')[1]);
+  const mime=b64.split(',')[0].match(/:(.*?);/)[1];
+  const arr=new Uint8Array(byteStr.length);
+  for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
+  const blob=new Blob([arr],{type:mime});
+  const fd=new FormData();
+  fd.append('chat_id',chatId);
+  if(topicId)fd.append('message_thread_id',topicId);
+  if(caption)fd.append('caption',caption);
+  fd.append('photo',blob,'photo.jpg');
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),30000);
+  return fetch('https://api.telegram.org/bot'+token+'/sendPhoto',{
+    method:'POST',body:fd,signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
+}
 
 function sendTelegram(){
   const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
@@ -4742,11 +4766,26 @@ function sendSummaryTelegram(date){
   const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const msg=buildRevenueSummaryText(date);
-  _showConfirmSend('🌙 ยืนยันส่งยอดเย็น',msg,()=>{
+  const r=revenueLog[date]||{};
+  const allPhotos=[...(r.cashBillPhotos||[]),...(r.bankDepositPhotos||[])];
+  if(r.bankDepositPhoto) allPhotos.push(r.bankDepositPhoto);
+  const photoCount=allPhotos.length;
+  const previewNote=photoCount?'\n\n📷 จะส่งรูปหลักฐาน '+photoCount+' รูปด้วย':'';
+  _showConfirmSend('🌙 ยืนยันส่งยอดเย็น',msg+previewNote,()=>{
     toast('กำลังส่ง...');
-    sendTgRevenue(msg).then(r=>{
-      if(r?.ok) toast('ส่ง Telegram สำเร็จ ✓');
-      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    sendTgRevenue(msg).then(res=>{
+      if(!res?.ok){alert('ส่งข้อความไม่สำเร็จ: '+(res?.description||''));return;}
+      if(!allPhotos.length){toast('ส่ง Telegram สำเร็จ ✓');return;}
+      // send photos sequentially
+      let i=0;
+      const captions=['เงินสดคู่บิล','หลักฐานนำเงินออก'];
+      function sendNext(){
+        if(i>=allPhotos.length){toast('ส่ง Telegram + '+allPhotos.length+' รูป สำเร็จ ✓');return;}
+        const cbpLen=(r.cashBillPhotos||[]).length;
+        const cap=i<cbpLen?'📸 เงินสดคู่บิล ('+(i+1)+')':'🏦 หลักฐานนำเงินออก';
+        sendTgRevenuePhoto(allPhotos[i],cap).then(()=>{i++;sendNext();}).catch(()=>{toast('ส่งรูปบางรูปไม่สำเร็จ');});
+      }
+      sendNext();
     }).catch(()=>alert('ส่งไม่สำเร็จ'));
   });
 }
