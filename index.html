@@ -409,6 +409,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <p id="topbar-sub"></p>
     </div>
     <div class="topbar-actions">
+      <button class="icon-btn" onclick="toggleTgTestMode()" style="font-size:11px" title="โหมดเทส Telegram">🧪</button>
+      <span id="tg-test-badge" class="hidden" style="position:fixed;top:0;left:0;right:0;background:#ff9800;color:#fff;text-align:center;font-size:11px;font-weight:700;padding:2px 0;z-index:9998">โหมดเทส — ไม่ส่ง Telegram จริง</span>
       <button class="icon-btn" onclick="syncNow()" id="sync-btn">↻ ซิงค์</button>
       <button class="icon-btn" onclick="goLogin()">ออก</button>
     </div>
@@ -3310,7 +3312,28 @@ function addCustomItem(cat){
 // ══════════════════════════════════════════════════════════
 // TELEGRAM
 // ══════════════════════════════════════════════════════════
+let _tgTestMode=false;
+function toggleTgTestMode(){
+  _tgTestMode=!_tgTestMode;
+  toast(_tgTestMode?'โหมดเทส ON — ไม่ส่ง Telegram จริง':'โหมดเทส OFF — ส่ง Telegram จริง');
+  document.getElementById('tg-test-badge')?.classList.toggle('hidden',!_tgTestMode);
+}
 function sendTelegramMsg(msg,topicId){
+  if(_tgTestMode){
+    const preview=msg.length>500?msg.substring(0,500)+'…':msg;
+    const popup=document.createElement('div');
+    popup.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    popup.innerHTML='<div style="background:#fff;border-radius:12px;max-width:400px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">'
+      +'<div style="padding:12px 16px;background:#ff9800;border-radius:12px 12px 0 0;color:#fff;font-weight:700;font-size:14px">🧪 โหมดเทส — ไม่ได้ส่งจริง</div>'
+      +'<pre style="padding:14px 16px;font-size:12px;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);color:#333;margin:0;line-height:1.6">'+esc(preview)+'</pre>'
+      +'<div style="padding:10px 16px;border-top:0.5px solid #eee;display:flex;gap:8px">'
+      +'<button onclick="navigator.clipboard?.writeText(this.closest(\'div[style]\').parentElement.querySelector(\'pre\').textContent);toast(\'คัดลอกแล้ว ✓\')" style="flex:1;padding:10px;border:0.5px solid #ddd;border-radius:8px;background:#f5f5f5;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">คัดลอก</button>'
+      +'<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">ปิด</button>'
+      +'</div></div>';
+    document.body.appendChild(popup);
+    popup.addEventListener('click',e=>{if(e.target===popup)popup.remove();});
+    return Promise.resolve({ok:true,description:'test mode'});
+  }
   const token=settings.token||TG_DEFAULTS.token;
   const chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId)return Promise.resolve({ok:false,description:'ยังไม่ได้ตั้งค่า Telegram'});
