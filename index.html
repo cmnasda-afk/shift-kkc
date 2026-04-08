@@ -4525,6 +4525,30 @@ function renderSummaryScreen(date){
 
   ${sec('☀️ รอบเช้า — เงินในเก๊ะ')}
   ${row('openCash','เงินสดเริ่มต้น',r.openCash,'var(--text)','฿','ที่กะเช้านับ')}
+  ${(()=>{
+    const _oc=parseFloat(r.openCash)||0;
+    if(!_oc) return '';
+    const photos=r.morningCashPhotos||[];
+    let out='<div style="padding:12px 16px;background:#e8f0fe;border-bottom:0.5px solid var(--border)">';
+    out+='<div style="font-size:18px;font-weight:700;color:#2a7ab0;margin-bottom:2px">ยอดเงินจริง '+fmtBaht(_oc)+' ฿</div>';
+    out+='<div style="font-size:10px;color:var(--text3);margin-bottom:8px">เงินสดในเก๊ะตอนเปิดร้าน</div>';
+    out+='<div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปหลักฐานเงินสด (วันที่/เวลา/สถานที่)</div>';
+    if(photos.length){
+      out+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+      photos.forEach(function(p,i){
+        out+='<div style="position:relative;width:calc(50% - 3px)">'
+          +'<img src="'+p+'" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)">'
+          +'<button onclick="deleteMorningCashPhoto(\''+date+'\','+i+')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer">✕</button>'
+          +'</div>';
+      });
+      out+='</div>';
+    }
+    out+='<label style="display:block;width:100%;padding:14px;background:var(--surface);border:1.5px dashed #2a7ab0;border-radius:8px;color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);text-align:center">';
+    out+='📸 ถ่ายรูปหลักฐาน'+(photos.length?' ('+photos.length+' รูป)':'');
+    out+='<input type="file" accept="image/*" style="display:none" onchange="handleMorningCashPhoto(this,\''+date+'\')">';
+    out+='</label></div>';
+    return out;
+  })()}
   <div style="padding:8px 16px;background:var(--surface)">
     <button onclick="sendMorningCash('${date}')" style="width:100%;background:#2a7ab0;color:#fff;border:none;border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">☀️ ส่งยอดเช้า (เงินในเก๊ะ) → Telegram</button>
   </div>
@@ -4753,11 +4777,19 @@ function sendMorningCash(date){
   if(!openCash){toast('กรุณาใส่เงินในเก๊ะก่อน');return;}
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   const msg=`☀️ ยอดเช้า SHIFT KKC\n${dateLabel}\n${'='.repeat(28)}\n\n💰 เงินในเก๊ะตอนเปิด: ฿${openCash.toLocaleString()}\n${r.recordedBy?'คีย์โดย: '+r.recordedBy+'\n':''}\n#morning #shift_kkc`;
-  _showConfirmSend('☀️ ยืนยันส่งยอดเช้า',msg,()=>{
+  const morningPhotos=r.morningCashPhotos||[];
+  const photoNote=morningPhotos.length?'\n\n📷 จะส่งรูปหลักฐาน '+morningPhotos.length+' รูปด้วย':'';
+  _showConfirmSend('☀️ ยืนยันส่งยอดเช้า',msg+photoNote,()=>{
     toast('กำลังส่ง...');
-    sendTgRevenue(msg).then(r=>{
-      if(r?.ok) toast('ส่งยอดเช้าสำเร็จ ✓');
-      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    sendTgRevenue(msg).then(res=>{
+      if(!res?.ok){alert('ส่งไม่สำเร็จ: '+(res?.description||''));return;}
+      if(!morningPhotos.length){toast('ส่งยอดเช้าสำเร็จ ✓');return;}
+      let i=0;
+      function sendNext(){
+        if(i>=morningPhotos.length){toast('ส่งยอดเช้า + '+morningPhotos.length+' รูป สำเร็จ ✓');return;}
+        sendTgRevenuePhoto(morningPhotos[i],'☀️ เงินในเก๊ะตอนเปิด ('+(i+1)+')').then(()=>{i++;sendNext();}).catch(()=>toast('ส่งรูปบางรูปไม่สำเร็จ'));
+      }
+      sendNext();
     }).catch(()=>alert('ส่งไม่สำเร็จ'));
   });
 }
@@ -4920,6 +4952,24 @@ function deleteCashBillPhoto(date,idx){
   revenueLog[date].cashBillPhotos=photos;
   saveRevenueLog();renderSummaryScreen(date);
   toast('ลบรูปแล้ว');
+}
+
+function handleMorningCashPhoto(input,date){
+  const file=input.files?.[0];if(!file)return;input.value='';
+  _processPhoto(file,function(c){
+    const b64=c.toDataURL('image/jpeg',0.7);
+    if(!revenueLog[date])revenueLog[date]={};
+    if(!revenueLog[date].morningCashPhotos)revenueLog[date].morningCashPhotos=[];
+    revenueLog[date].morningCashPhotos.push(b64);
+    saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปแล้ว ✓');
+  });
+}
+function deleteMorningCashPhoto(date,idx){
+  if(!revenueLog[date])return;
+  const photos=revenueLog[date].morningCashPhotos||[];
+  if(idx>=0&&idx<photos.length) photos.splice(idx,1);
+  revenueLog[date].morningCashPhotos=photos;
+  saveRevenueLog();renderSummaryScreen(date);toast('ลบรูปแล้ว');
 }
 
 // เรียก initLoginSummary เมื่อหน้าโหลด
