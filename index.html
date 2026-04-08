@@ -3668,18 +3668,11 @@ function renderMgrRevenue(){
     <div style="font-size:10px;color:var(--text3);margin-bottom:10px">เก็บ 5,000 ฿ ในลิ้นชัก · นำส่วนเกินฝากธนาคาร</div>
     `:`<div style="font-size:13px;color:var(--text2);margin-bottom:10px">${actualCash>0?'เงินในลิ้นชักไม่เกิน 5,000 ฿ — ไม่ต้องนำออก':'รอบาริสต้ากรอกจำนวนจริงในลิ้นชัก'}</div>`}
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px">ถ่ายรูปหลักฐานนำเงินออก (วันที่/เวลา/สถานที่)</div>
-    ${(()=>{
-      const ph=r.bankDepositPhotos||[];const old=r.bankDepositPhoto?[r.bankDepositPhoto]:[];const all=[...ph,...old];
-      let out='';
-      if(all.length){
-        out+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">';
-        all.forEach((p,i)=>{out+='<img src="'+p+'" style="width:calc(50% - 2px);height:120px;object-fit:cover;border-radius:var(--r)">';});
-        out+='</div>';
-      }
-      out+='<button onclick="document.getElementById(\'mgr-deposit-photo\').click()" style="width:100%;padding:12px;background:#fff;border:1.5px dashed #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📸 ถ่ายรูปหลักฐาน'+(all.length?' ('+all.length+' รูป)':'')+'</button>'
-        +'<input type="file" id="mgr-deposit-photo" accept="image/*" capture="environment" style="display:none" onchange="handleDepositPhotoMgr(this,\''+selDate+'\')">';
-      return out;
-    })()}
+    ${(r.bankDepositPhotos||[]).length?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">'+((r.bankDepositPhotos||[]).map(function(p){return '<img src="'+p+'" style="width:calc(50% - 2px);height:120px;object-fit:cover;border-radius:8px">'}).join(''))+'</div>':''}
+    <label style="display:block;width:100%;padding:12px;background:#fff;border:1.5px dashed #2a7ab0;border-radius:8px;color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);text-align:center">
+      📸 ถ่ายรูปหลักฐาน
+      <input type="file" accept="image/*" style="display:none" onchange="handleDepositPhotoMgr(this,'${selDate}')">
+    </label>
   </div>
   ${sec('ทำลายบิล (Void)','var(--amber)')}
   ${field('voidAllBills','ทำลายบิล (จำนวน)',voidAllBills,'','var(--amber)','บิล')}
