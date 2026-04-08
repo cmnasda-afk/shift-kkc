@@ -4800,186 +4800,124 @@ function copySummaryText(date){
   });
 }
 
-function handleDepositPhoto(input,date){
-  const file=input.files?.[0];
-  if(!file)return;
+// ═══ Shared photo overlay: วันเวลา + ที่อยู่จริง (reverse geocode) มุมขวาล่าง ═══
+function _processPhoto(file,callback){
   const reader=new FileReader();
   reader.onload=function(e){
     const img=new Image();
     img.onload=function(){
-      const maxW=800;
-      let w=img.width,h=img.height;
+      const maxW=800;let w=img.width,h=img.height;
       if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');
-      c.width=w;c.height=h;
-      const ctx=c.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
-      // overlay timestamp bar
-      const barH=50;
-      ctx.fillStyle='rgba(0,0,0,0.6)';
-      ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';
-      ctx.font='bold 14px sans-serif';
-      const now=new Date();
-      const ts=now.toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
-      ctx.fillText(ts,10,h-barH+20);
-      // try geolocation
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+      // get location then draw overlay
       if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(pos=>{
-          const loc=`GPS: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-          ctx.fillText(loc,10,h-barH+38);
-          saveDepositPhoto(c,date);
+          _reverseGeocode(pos.coords.latitude,pos.coords.longitude).then(addr=>{
+            _drawPhotoOverlay(ctx,w,h,addr);callback(c);
+          });
         },()=>{
-          ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);
-          saveDepositPhoto(c,date);
+          _drawPhotoOverlay(ctx,w,h,['ไม่สามารถระบุตำแหน่งได้']);callback(c);
         },{timeout:10000});
       } else {
-        ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);
-        saveDepositPhoto(c,date);
+        _drawPhotoOverlay(ctx,w,h,['ไม่รองรับ GPS']);callback(c);
       }
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-  input.value='';
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);
 }
-function saveDepositPhoto(canvas,date){
-  const b64=canvas.toDataURL('image/jpeg',0.7);
-  if(!revenueLog[date])revenueLog[date]={};
-  if(!revenueLog[date].bankDepositPhotos)revenueLog[date].bankDepositPhotos=[];
-  // migrate old single photo
-  if(revenueLog[date].bankDepositPhoto){
-    revenueLog[date].bankDepositPhotos.unshift(revenueLog[date].bankDepositPhoto);
-    delete revenueLog[date].bankDepositPhoto;
-  }
-  revenueLog[date].bankDepositPhotos.push(b64);
-  saveRevenueLog();
-  renderSummaryScreen(date);
-  toast('บันทึกรูปหลักฐานแล้ว ✓');
+function _reverseGeocode(lat,lng){
+  return fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&accept-language=th&zoom=18')
+    .then(r=>r.json()).then(d=>{
+      const a=d.address||{};
+      const lines=[];
+      // บ้านเลขที่ + ถนน/หมู่บ้าน
+      const road=a.road||a.hamlet||a.village||a.suburb||'';
+      const num=a.house_number||'';
+      if(num||road) lines.push((num?num+' ':'')+road);
+      // ตำบล
+      if(a.subdistrict||a.suburb||a.village) lines.push('ตำบล'+(a.subdistrict||a.suburb||a.village));
+      // อำเภอ
+      if(a.city_district||a.county||a.city) lines.push('อำเภอ'+(a.city_district||a.county||a.city));
+      // จังหวัด
+      if(a.state||a.province) lines.push(a.state||a.province);
+      return lines.length?lines:['ตำแหน่ง: '+lat.toFixed(5)+', '+lng.toFixed(5)];
+    }).catch(()=>['ตำแหน่ง: '+lat.toFixed(5)+', '+lng.toFixed(5)]);
+}
+function _drawPhotoOverlay(ctx,w,h,addrLines){
+  const now=new Date();
+  const ts=now.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const lines=[ts,...addrLines];
+  const fontSize=Math.max(14,Math.round(w/40));
+  const lineH=fontSize+6;
+  const pad=10;
+  ctx.font='bold '+fontSize+'px sans-serif';
+  // measure max width for background
+  let maxTw=0;
+  lines.forEach(l=>{const m=ctx.measureText(l).width;if(m>maxTw)maxTw=m;});
+  const boxW=maxTw+pad*2;
+  const boxH=lines.length*lineH+pad;
+  const boxX=w-boxW-6;
+  const boxY=h-boxH-6;
+  // semi-transparent background
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(boxX,boxY,boxW,boxH,6):ctx.fillRect(boxX,boxY,boxW,boxH);
+  ctx.fill();
+  // text right-aligned
+  ctx.fillStyle='#fff';ctx.font='bold '+fontSize+'px sans-serif';
+  ctx.textAlign='right';
+  lines.forEach((line,i)=>{
+    ctx.fillText(line,w-pad-6,boxY+pad+(i+1)*lineH-6);
+  });
+  ctx.textAlign='left'; // reset
+}
+
+// ═══ Photo handlers — all use shared _processPhoto ═══
+function handleDepositPhoto(input,date){
+  const file=input.files?.[0];if(!file)return;input.value='';
+  _processPhoto(file,c=>{
+    const b64=c.toDataURL('image/jpeg',0.7);
+    if(!revenueLog[date])revenueLog[date]={};
+    if(!revenueLog[date].bankDepositPhotos)revenueLog[date].bankDepositPhotos=[];
+    if(revenueLog[date].bankDepositPhoto){revenueLog[date].bankDepositPhotos.unshift(revenueLog[date].bankDepositPhoto);delete revenueLog[date].bankDepositPhoto;}
+    revenueLog[date].bankDepositPhotos.push(b64);
+    saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปหลักฐานแล้ว ✓');
+  });
 }
 function deleteDepositPhoto(date,idx){
   if(!revenueLog[date])return;
   const photos=revenueLog[date].bankDepositPhotos||[];
   if(idx>=0&&idx<photos.length) photos.splice(idx,1);
   revenueLog[date].bankDepositPhotos=photos;
-  saveRevenueLog();
-  renderSummaryScreen(date);
-  toast('ลบรูปแล้ว');
-}
-
-function handleDepositPhotoMgr(input,date){
-  const file=input.files?.[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const maxW=800;let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-      const barH=50;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
-      const ts=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
-      ctx.fillText(ts,10,h-barH+20);
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(pos=>{
-          ctx.fillText('GPS: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5),10,h-barH+38);
-          saveMgrDepositPhoto(c,date);
-        },()=>{ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);saveMgrDepositPhoto(c,date);},{timeout:10000});
-      } else {ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);saveMgrDepositPhoto(c,date);}
-    };img.src=e.target.result;
-  };reader.readAsDataURL(file);input.value='';
-}
-function saveMgrDepositPhoto(canvas,date){
-  const b64=canvas.toDataURL('image/jpeg',0.7);
-  if(!revenueLog[date])revenueLog[date]={};
-  if(!revenueLog[date].bankDepositPhotos)revenueLog[date].bankDepositPhotos=[];
-  if(revenueLog[date].bankDepositPhoto){revenueLog[date].bankDepositPhotos.unshift(revenueLog[date].bankDepositPhoto);delete revenueLog[date].bankDepositPhoto;}
-  revenueLog[date].bankDepositPhotos.push(b64);
-  saveRevenueLog();renderContent('mgr-revenue');
-  toast('บันทึกรูปหลักฐานแล้ว ✓');
-}
-
-function handleCashDrawerPhoto(input,date){
-  const file=input.files?.[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const maxW=800;let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-      const barH=50;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
-      const ts=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
-      ctx.fillText(ts,10,h-barH+20);
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(pos=>{
-          ctx.fillText('GPS: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5),10,h-barH+38);
-          _saveCashDrawerPhoto(c,date);
-        },()=>{ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);_saveCashDrawerPhoto(c,date);},{timeout:10000});
-      } else {ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);_saveCashDrawerPhoto(c,date);}
-    };img.src=e.target.result;
-  };reader.readAsDataURL(file);input.value='';
-}
-function _saveCashDrawerPhoto(canvas,date){
-  const b64=canvas.toDataURL('image/jpeg',0.7);
-  if(!revenueLog[date])revenueLog[date]={};
-  if(!revenueLog[date].cashDrawerPhotos)revenueLog[date].cashDrawerPhotos=[];
-  revenueLog[date].cashDrawerPhotos.push(b64);
-  saveRevenueLog();renderSummaryScreen(date);
-  toast('บันทึกรูปเงินในลิ้นชักแล้ว ✓');
-}
-function deleteCashDrawerPhoto(date,idx){
-  if(!revenueLog[date])return;
-  const photos=revenueLog[date].cashDrawerPhotos||[];
-  if(idx>=0&&idx<photos.length) photos.splice(idx,1);
-  revenueLog[date].cashDrawerPhotos=photos;
   saveRevenueLog();renderSummaryScreen(date);toast('ลบรูปแล้ว');
 }
-
-function handleCashBillPhoto(input,date){
-  const file=input.files?.[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const maxW=800;let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-      const barH=50;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,h-barH,w,barH);
-      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
-      const ts=new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'});
-      ctx.fillText(ts,10,h-barH+20);
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(pos=>{
-          ctx.fillText('GPS: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5),10,h-barH+38);
-          _saveCashBillPhoto(c,date);
-        },()=>{ctx.fillText('ตำแหน่ง: ไม่สามารถระบุได้',10,h-barH+38);_saveCashBillPhoto(c,date);},{timeout:10000});
-      } else {ctx.fillText('ตำแหน่ง: ไม่รองรับ',10,h-barH+38);_saveCashBillPhoto(c,date);}
-    };img.src=e.target.result;
-  };reader.readAsDataURL(file);input.value='';
+function handleDepositPhotoMgr(input,date){
+  const file=input.files?.[0];if(!file)return;input.value='';
+  _processPhoto(file,c=>{
+    const b64=c.toDataURL('image/jpeg',0.7);
+    if(!revenueLog[date])revenueLog[date]={};
+    if(!revenueLog[date].bankDepositPhotos)revenueLog[date].bankDepositPhotos=[];
+    if(revenueLog[date].bankDepositPhoto){revenueLog[date].bankDepositPhotos.unshift(revenueLog[date].bankDepositPhoto);delete revenueLog[date].bankDepositPhoto;}
+    revenueLog[date].bankDepositPhotos.push(b64);
+    saveRevenueLog();renderContent('mgr-revenue');toast('บันทึกรูปหลักฐานแล้ว ✓');
+  });
 }
-function _saveCashBillPhoto(canvas,date){
-  const b64=canvas.toDataURL('image/jpeg',0.7);
-  if(!revenueLog[date])revenueLog[date]={};
-  if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
-  revenueLog[date].cashBillPhotos.push(b64);
-  saveRevenueLog();renderSummaryScreen(date);
-  toast('บันทึกรูปแล้ว ✓');
+function handleCashBillPhoto(input,date){
+  const file=input.files?.[0];if(!file)return;input.value='';
+  _processPhoto(file,c=>{
+    const b64=c.toDataURL('image/jpeg',0.7);
+    if(!revenueLog[date])revenueLog[date]={};
+    if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
+    revenueLog[date].cashBillPhotos.push(b64);
+    saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปแล้ว ✓');
+  });
 }
 function deleteCashBillPhoto(date,idx){
   if(!revenueLog[date])return;
   const photos=revenueLog[date].cashBillPhotos||[];
   if(idx>=0&&idx<photos.length) photos.splice(idx,1);
   revenueLog[date].cashBillPhotos=photos;
-  saveRevenueLog();
-  renderSummaryScreen(date);
+  saveRevenueLog();renderSummaryScreen(date);
   toast('ลบรูปแล้ว');
 }
 
