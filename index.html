@@ -4681,6 +4681,9 @@ function renderSummaryScreen(date){
     <button class="btn-primary" style="flex:1" onclick="sendSummaryTelegram('${date}')">🌙 ส่งยอดเย็น → Telegram</button>
     <button class="btn-ghost" style="width:100px;margin:0" onclick="copySummaryText('${date}')">คัดลอก</button>
   </div>
+  <div style="padding:0 12px 8px">
+    <button onclick="toggleTgTestMode()" style="width:100%;padding:10px;border:1.5px solid #ff9800;border-radius:var(--r);background:${_tgTestMode?'#ff9800':'#fff'};color:${_tgTestMode?'#fff':'#ff9800'};font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">🧪 ${_tgTestMode?'ปิดโหมดเทส — กลับส่งจริง':'เปิดโหมดเทส — ไม่ส่ง Telegram จริง'}</button>
+  </div>
   <div style="height:20px"></div>`;
 
   const el=document.getElementById('summary-content');
