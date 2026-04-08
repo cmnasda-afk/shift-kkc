@@ -3500,6 +3500,14 @@ function renderMgrRevenue(){
   if(currentRole!=='manager') return`<div class="empty">เฉพาะ Manager</div>`;
   const selDate=document.getElementById('rev-date-sel')?.value||todayStr();
   const r=revenueLog[selDate]||{};
+  // auto-migrate old field names → new (one-time per date)
+  if(r.cashIn!==undefined&&r.payCashAmt===undefined){
+    const m={payCashAmt:'cashIn',payTransfer:'qrOnline',tenantDisc:'disc10',staffWelfareAmt:'staffDrinkAmt',voidAllAmt:'void_',voidAllBills:'voidCount',cancelBillAmt:'cancel'};
+    Object.entries(m).forEach(([nk,ok])=>{if(r[ok]!==undefined&&r[nk]===undefined)r[nk]=r[ok];});
+    if(!revenueLog[selDate])revenueLog[selDate]={};
+    Object.assign(revenueLog[selDate],r);
+    saveRevenueLog();
+  }
   const isEdit=window._revEditMode===selDate;
 
   // backward compat: read new fields with fallback to old
@@ -4338,6 +4346,14 @@ function renderSummaryScreen(date){
   if(!isManager && date!==today){ date=today; }
 
   const r=revenueLog[date]||{};
+  // auto-migrate old field names → new (one-time per date)
+  if(r.cashIn!==undefined&&r.payCashAmt===undefined){
+    const m={payCashAmt:'cashIn',payTransfer:'qrOnline',tenantDisc:'disc10',staffWelfareAmt:'staffDrinkAmt',voidAllAmt:'void_',voidAllBills:'voidCount',cancelBillAmt:'cancel'};
+    Object.entries(m).forEach(([nk,ok])=>{if(r[ok]!==undefined&&r[nk]===undefined)r[nk]=r[ok];});
+    if(!revenueLog[date])revenueLog[date]={};
+    Object.assign(revenueLog[date],r);
+    saveRevenueLog();
+  }
   // ─── ส่วนลด & โปรโมชั่น ───
   const staffWelfareCups=parseInt(r.staffWelfareCups)||0;
   const staffWelfareAmt=parseFloat(r.staffWelfareAmt)||parseFloat(r.staffDrinkAmt)||0;
