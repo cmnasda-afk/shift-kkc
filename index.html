@@ -3810,11 +3810,14 @@ function buildRevenueSummaryText(date){
 function sendRevenueTelegram(date){
   const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
-  toast('กำลังส่ง...');
-  sendTgRevenue(buildRevenueSummaryText(date)).then(r=>{
-    if(r?.ok)toast('ส่งสรุปรายรับสำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  const msg=buildRevenueSummaryText(date);
+  _showConfirmSend('ยืนยันส่งสรุปรายรับ',msg,()=>{
+    toast('กำลังส่ง...');
+    sendTgRevenue(msg).then(r=>{
+      if(r?.ok)toast('ส่งสรุปรายรับสำเร็จ ✓');
+      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  });
 }
 
 function copyRevenueSummary(date){
@@ -4703,28 +4706,49 @@ function syncStaffDrinkTotal(date){
   revenueLog[date].discStaff=total;
 }
 
+function _showConfirmSend(title,preview,onConfirm){
+  const popup=document.createElement('div');
+  popup.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  popup.innerHTML='<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.3)">'
+    +'<div style="padding:12px 16px;background:var(--green);border-radius:12px 12px 0 0;color:#fff;font-weight:700;font-size:14px">'+esc(title)+'</div>'
+    +'<div style="flex:1;overflow:auto;padding:0"><pre style="padding:14px 16px;font-size:12px;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);color:#333;margin:0;line-height:1.6">'+esc(preview)+'</pre></div>'
+    +'<div style="padding:12px 16px;border-top:0.5px solid #eee;display:flex;gap:8px">'
+    +'<button id="_confirm-cancel" style="flex:1;padding:12px;border:0.5px solid #ddd;border-radius:8px;background:#f5f5f5;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);color:var(--text)">ยกเลิก</button>'
+    +'<button id="_confirm-send" style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--green);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">ยืนยันส่ง</button>'
+    +'</div></div>';
+  document.body.appendChild(popup);
+  popup.querySelector('#_confirm-cancel').onclick=()=>popup.remove();
+  popup.querySelector('#_confirm-send').onclick=()=>{popup.remove();onConfirm();};
+  popup.addEventListener('click',e=>{if(e.target===popup)popup.remove();});
+}
+
 function sendMorningCash(date){
   const r=revenueLog[date]||{};
   const openCash=parseFloat(r.openCash)||0;
   if(!openCash){toast('กรุณาใส่เงินในเก๊ะก่อน');return;}
   const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'});
   const msg=`☀️ ยอดเช้า SHIFT KKC\n${dateLabel}\n${'='.repeat(28)}\n\n💰 เงินในเก๊ะตอนเปิด: ฿${openCash.toLocaleString()}\n${r.recordedBy?'คีย์โดย: '+r.recordedBy+'\n':''}\n#morning #shift_kkc`;
-  toast('กำลังส่ง...');
-  sendTgRevenue(msg).then(r=>{
-    if(r?.ok) toast('ส่งยอดเช้าสำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  _showConfirmSend('☀️ ยืนยันส่งยอดเช้า',msg,()=>{
+    toast('กำลังส่ง...');
+    sendTgRevenue(msg).then(r=>{
+      if(r?.ok) toast('ส่งยอดเช้าสำเร็จ ✓');
+      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  });
 }
 
 function sendSummaryTelegram(date){
-  saveStaffDrinks(date); // sync staff drinks before sending
+  saveStaffDrinks(date);
   const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
-  toast('กำลังส่ง...');
-  sendTgRevenue(buildRevenueSummaryText(date)).then(r=>{
-    if(r?.ok) toast('ส่ง Telegram สำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  const msg=buildRevenueSummaryText(date);
+  _showConfirmSend('🌙 ยืนยันส่งยอดเย็น',msg,()=>{
+    toast('กำลังส่ง...');
+    sendTgRevenue(msg).then(r=>{
+      if(r?.ok) toast('ส่ง Telegram สำเร็จ ✓');
+      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  });
 }
 
 function copySummaryText(date){
