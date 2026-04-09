@@ -1291,6 +1291,7 @@ function renderStock(){
       <button onclick="exportCSV()" style="flex:1;padding:10px;background:var(--surface);border:1px solid var(--green-mid);border-radius:var(--r);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📊 Google Sheet (CSV)</button>
       <button onclick="exportStockPDF()" style="flex:1;padding:10px;background:var(--surface);border:1px solid #2a7ab0;border-radius:var(--r);color:#2a7ab0;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📄 PDF</button>
     </div>
+    <button onclick="if(confirm('รีเซทสต็อกวันนี้ทั้งหมด?')){entries=entries.filter(e=>!(e.type===\'stock\'&&e.date===todayStr()));saveEntries();showTab(\'stock\');toast('รีเซทสต็อกวันนี้แล้ว');}" style="width:100%;padding:8px;background:none;border:1px solid var(--red);border-radius:var(--r);color:var(--red);font-size:11px;cursor:pointer;font-family:var(--font)">🔄 รีเซทสต็อกวันนี้ (เทส)</button>
   </div>`;
   html += `<div style="height:20px"></div>`;
   return html;
