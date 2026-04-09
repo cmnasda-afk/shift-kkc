@@ -1273,6 +1273,9 @@ function renderStock(){
     });
   }
 
+  html += `<div style="padding:12px">
+    <button onclick="sendTelegramSummary()" style="width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">📤 ส่งสรุปสต็อก → Telegram</button>
+  </div>`;
   html += `<div style="height:20px"></div>`;
   return html;
 }
