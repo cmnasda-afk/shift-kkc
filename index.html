@@ -2604,12 +2604,60 @@ function clearAllData(){
 function startStockCheck(){
   const lbn=latestByName();
   const today=todayStr();
-  const allItems=getAllCats().reduce((a,c)=>[...a,...c.items],[]);
-  const unchecked=allItems.find(it=>{const e=lbn[it.name];return !e||e.date!==today;});
-  if(unchecked){
-    openStockDrawer(unchecked.name,unchecked.unit);
+  let html='<div style="padding:12px 16px;background:var(--green);color:#fff;font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center">'
+    +'<span>📋 เช็คสต็อกทั้งหมด</span>'
+    +'<button onclick="saveAllStockCheck()" style="background:#fff;color:var(--green);border:none;border-radius:var(--r);padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">บันทึกทั้งหมด</button>'
+    +'</div>';
+  getAllCats().forEach(cat=>{
+    html+='<div style="background:var(--bg2);padding:6px 16px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:0.5px solid var(--border)">'+esc(cat.cat)+'</div>';
+    cat.items.forEach(item=>{
+      const e=lbn[item.name]||{};
+      const curQty=e.qty!==undefined&&e.qty!==''?e.qty:'';
+      const checked=e.date===today;
+      html+='<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;background:'+(checked?'#f0faf0':'var(--surface)')+'">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:500;color:var(--text)">'+(checked?'✅ ':'')+esc(item.name)+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+esc(item.unit)+'</div>'
+        +'</div>'
+        +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="'+curQty+'" placeholder="0"'
+        +' style="width:80px;background:var(--surface2);border:1px solid '+(checked?'var(--green-mid)':'var(--border2)')+';border-radius:var(--r);padding:8px 10px;font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:right;outline:none">'
+        +'<span style="font-size:11px;color:var(--text2);min-width:30px">'+esc(item.unit)+'</span>'
+        +'</div>';
+    });
+  });
+  html+='<div style="padding:12px 16px">'
+    +'<button onclick="saveAllStockCheck()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด</button>'
+    +'</div><div style="height:20px"></div>';
+  document.getElementById('main-content').innerHTML=html;
+}
+
+function saveAllStockCheck(){
+  const inputs=document.querySelectorAll('[data-stock-name]');
+  let count=0;
+  inputs.forEach(input=>{
+    const name=input.dataset.stockName;
+    const unit=input.dataset.stockUnit;
+    const val=input.value.trim();
+    if(val==='')return;
+    const qty=parseFloat(val);
+    if(isNaN(qty))return;
+    const ms=minStock[name]||{};
+    const minVal=parseFloat(ms.min)||0;
+    let status='ok';
+    if(minVal>0){
+      if(qty<=0) status='out';
+      else if(qty<=minVal) status='low';
+    }
+    const entry={name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:''};
+    entries.push(entry);
+    count++;
+  });
+  if(count){
+    saveEntries();
+    toast('บันทึก '+count+' รายการสำเร็จ ✓');
+    showTab('stock');
   } else {
-    toast('เช็คครบทุกรายการแล้ว ✓');
+    toast('กรุณากรอกจำนวนอย่างน้อย 1 รายการ');
   }
 }
 
