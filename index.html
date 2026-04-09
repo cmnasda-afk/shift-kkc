@@ -1230,6 +1230,11 @@ function renderStock(){
             <div class="balance-cell-unit">${esc(item.unit)}${(()=>{const ms=minStock[item.name]||{};return ms.subUnit&&ms.subQty&&cur&&cur.qty!==''?` (≈${Math.round(parseFloat(cur.qty)*ms.subQty)} ${esc(ms.subUnit)})`:''})()}</div>
           </div>
         </div>
+        <div style="padding:4px 12px 8px">
+          <button onclick="openStockDrawer('${escAttr(item.name)}','${escAttr(item.unit)}')" style="width:100%;padding:8px;background:${autoStatus==='out'?'var(--red-light)':autoStatus==='low'?'#fff3e0':'var(--green-light)'};border:1px solid ${autoStatus==='out'?'var(--red)':autoStatus==='low'?'var(--amber)':'var(--green-mid)'};border-radius:var(--r);color:${autoStatus==='out'?'var(--red)':autoStatus==='low'?'var(--amber)':'var(--green)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">
+            ${cur&&cur.date===todayStr()?'✅ เช็คแล้ววันนี้ · แก้ไข':'📋 เช็คสต็อก'}
+          </button>
+        </div>
       </div>`;
     });
   });
@@ -4219,10 +4224,19 @@ function clearOrderHistory(){
 // ══════════════════════════════════════════════════════════
 function exportCSV(){
   const lbn=latestByName();
-  let csv='ชื่อรายการ,หน่วย,ยอดคงเหลือ,สถานะ,รับเข้าล่าสุด,วันหมดอายุ,Supplier,หมายเหตุ\n';
+  let csv='หมวด,ชื่อรายการ,หน่วย,ยอดรอบก่อน,ยอดปัจจุบัน,เปลี่ยนแปลง,สถานะ,ต้องสั่ง,Min,รับเข้าล่าสุด,วันหมดอายุ,Supplier,หมายเหตุ\n';
   getAllCats().forEach(cat=>cat.items.forEach(item=>{
     const e=lbn[item.name]||{};
-    const row=[item.name,item.unit,e.qty||'',e.status||'',fmt(e.recvDate||''),fmt(e.expDate||''),e.supplier||'',e.note||''];
+    const history=getItemHistory(item.name);
+    const prev=history.length>1?history[1]:null;
+    const prevQty=prev?parseFloat(prev.qty):'';
+    const curQty=e.qty!==undefined&&e.qty!==''?parseFloat(e.qty):'';
+    const diff=prevQty!==''&&curQty!==''?(curQty-prevQty):'';
+    const ms=minStock[item.name]||{};
+    const minVal=parseFloat(ms.min)||0;
+    const st=e.status==='ok'?'ปกติ':e.status==='low'?'น้อย':e.status==='out'?'หมด':'—';
+    const needOrder=minVal>0&&curQty!==''&&curQty<=minVal?'ต้องสั่ง':'ไม่ต้อง';
+    const row=[cat.cat,item.name,item.unit,prevQty,curQty,diff,st,needOrder,minVal||'',fmt(e.recvDate||''),fmt(e.expDate||''),e.supplier||'',e.note||''];
     csv+=row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')+'\n';
   }));
   downloadFile('shift_kkc_stock_'+todayStr()+'.csv', csv, 'text/csv;charset=utf-8;');
@@ -4254,20 +4268,33 @@ function exportStockPDF(){
   const dateStr=now.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const timeStr=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
   let html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>สรุปสต็อก SHIFT KKC</title>'
-    +'<style>body{font-family:sans-serif;padding:20px;color:#333}h1{font-size:18px;margin-bottom:4px}p.sub{font-size:12px;color:#888;margin-bottom:16px}'
-    +'table{width:100%;border-collapse:collapse;font-size:13px}th{background:#1a5a30;color:#fff;padding:8px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #e0e0e0}'
-    +'tr:nth-child(even){background:#f8f8f8}.cat{background:#e8f5e9;font-weight:700;font-size:12px;color:#1a5a30}'
-    +'.ok{color:#1a5a30}.low{color:#c07800}.out{color:#c00}@media print{body{padding:0}}</style></head><body>'
+    +'<style>body{font-family:sans-serif;padding:20px;color:#333;font-size:11px}h1{font-size:18px;margin-bottom:4px}p.sub{font-size:12px;color:#888;margin-bottom:16px}'
+    +'table{width:100%;border-collapse:collapse}th{background:#1a5a30;color:#fff;padding:6px 8px;text-align:left;font-size:10px}td{padding:5px 8px;border-bottom:1px solid #e0e0e0}'
+    +'tr:nth-child(even){background:#f8f8f8}.cat{background:#e8f5e9;font-weight:700;font-size:11px;color:#1a5a30}'
+    +'.ok{color:#1a5a30}.low{color:#c07800;font-weight:700}.out{color:#c00;font-weight:700}.order{background:#fff3e0;font-weight:700;color:#c07800}'
+    +'@media print{body{padding:10px}}</style></head><body>'
     +'<h1>📦 สรุปสต็อก SHIFT KKC</h1><p class="sub">'+dateStr+' '+timeStr+'</p>'
-    +'<table><tr><th>รายการ</th><th>หน่วย</th><th>ยอดคงเหลือ</th><th>สถานะ</th></tr>';
+    +'<table><tr><th>รายการ</th><th>หน่วย</th><th>รอบก่อน</th><th>ปัจจุบัน</th><th>+/-</th><th>สถานะ</th><th>ต้องสั่ง</th></tr>';
   getAllCats().forEach(cat=>{
-    html+='<tr class="cat"><td colspan="4">'+esc(cat.cat)+'</td></tr>';
+    html+='<tr class="cat"><td colspan="7">'+esc(cat.cat)+'</td></tr>';
     cat.items.forEach(item=>{
       const e=lbn[item.name]||{};
-      const qty=e.qty!==undefined&&e.qty!==''?e.qty:'—';
+      const history=getItemHistory(item.name);
+      const prev=history.length>1?history[1]:null;
+      const prevQty=prev?prev.qty:'—';
+      const curQty=e.qty!==undefined&&e.qty!==''?e.qty:'—';
+      const diff=prev&&e.qty!==undefined&&e.qty!==''?(parseFloat(e.qty)-parseFloat(prev.qty)):null;
+      const diffStr=diff!==null?(diff>=0?'+':'')+diff.toFixed(1):'';
+      const ms=minStock[item.name]||{};
+      const minVal=parseFloat(ms.min)||0;
+      const curNum=parseFloat(e.qty)||0;
       const st=e.status==='ok'?'ปกติ':e.status==='low'?'น้อย':e.status==='out'?'หมด':'—';
-      const cls=e.status==='ok'?'ok':e.status==='low'?'low':e.status==='out'?'out':'';
-      html+='<tr><td>'+esc(item.name)+'</td><td>'+esc(item.unit)+'</td><td style="font-weight:700">'+qty+'</td><td class="'+cls+'">'+st+'</td></tr>';
+      const cls=e.status||'';
+      const needOrder=minVal>0&&curNum<=minVal;
+      html+='<tr><td>'+esc(item.name)+'</td><td>'+esc(item.unit)+'</td><td>'+prevQty+'</td><td style="font-weight:700">'+curQty+'</td>'
+        +'<td style="color:'+(diff>0?'#1a5a30':diff<0?'#c00':'#888')+'">'+diffStr+'</td>'
+        +'<td class="'+cls+'">'+st+'</td>'
+        +'<td class="'+(needOrder?'order':'')+'">'+( needOrder?'⚠ สั่ง':'✓')+'</td></tr>';
     });
   });
   html+='</table></body></html>';
