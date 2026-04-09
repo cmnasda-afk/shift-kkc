@@ -1230,11 +1230,6 @@ function renderStock(){
             <div class="balance-cell-unit">${esc(item.unit)}${(()=>{const ms=minStock[item.name]||{};return ms.subUnit&&ms.subQty&&cur&&cur.qty!==''?` (≈${Math.round(parseFloat(cur.qty)*ms.subQty)} ${esc(ms.subUnit)})`:''})()}</div>
           </div>
         </div>
-        <div style="padding:4px 12px 8px">
-          <button onclick="openStockDrawer('${escAttr(item.name)}','${escAttr(item.unit)}')" style="width:100%;padding:8px;background:${autoStatus==='out'?'var(--red-light)':autoStatus==='low'?'#fff3e0':'var(--green-light)'};border:1px solid ${autoStatus==='out'?'var(--red)':autoStatus==='low'?'var(--amber)':'var(--green-mid)'};border-radius:var(--r);color:${autoStatus==='out'?'var(--red)':autoStatus==='low'?'var(--amber)':'var(--green)'};font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">
-            ${cur&&cur.date===todayStr()?'✅ เช็คแล้ววันนี้ · แก้ไข':'📋 เช็คสต็อก'}
-          </button>
-        </div>
       </div>`;
     });
   });
