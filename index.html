@@ -3726,35 +3726,41 @@ async function pushToSheets(action, body) {
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),15000);
   try {
+    // ใช้ text/plain เพื่อหลีกเลี่ยง CORS preflight (Apps Script ไม่รองรับ OPTIONS)
     const res = await fetch(settings.scriptUrl, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST',
+      headers: {'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action, ...body}), signal:ctrl.signal
     });
     clearTimeout(timer);
     const d = await res.json();
     return d.ok;
-  } catch(e) { clearTimeout(timer); return false; }
+  } catch(e) { clearTimeout(timer); console.error('pushToSheets error:',e); return false; }
 }
 
 async function pushAllToSheet(){
   if(!settings.scriptUrl){toast('ยังไม่ได้ตั้งค่า Google Sheets URL');return;}
   if(!confirm('Push ข้อมูลทั้งหมดในเครื่องนี้ไป Google Sheet?\n\nใช้เมื่อเป็นเครื่องต้นทาง เท่านั้น'))return;
-  const btn=document.getElementById('sync-btn');
-  if(btn)btn.textContent='↑ ...';
-  toast('กำลัง push...');
+  toast('กำลัง push... รอสักครู่');
   const lbn=latestByName();
   const allStock=Object.values(lbn);
-  let done=0;
+  let done=0, failed=0;
   for(const e of allStock){
-    try{await pushToSheets('saveEntry',{entry:e});done++;}catch(err){}
+    const ok=await pushToSheets('saveEntry',{entry:e});
+    if(ok)done++;else failed++;
   }
-  // push receive entries
   const recvs=entries.filter(e=>e.type==='receive');
   for(const e of recvs){
-    try{await pushToSheets('saveReceive',{receive:e});done++;}catch(err){}
+    const ok=await pushToSheets('saveReceive',{receive:e});
+    if(ok)done++;else failed++;
   }
-  if(btn)btn.textContent='↻ ซิงค์';
-  toast('Push สำเร็จ '+done+' รายการ ✓');
+  if(failed>0){
+    alert('Push ไม่สำเร็จ '+failed+' รายการ (สำเร็จ '+done+' รายการ)\n\nตรวจสอบ:\n1. Apps Script URL ถูกต้องไหม\n2. Deploy เป็น Web App "Anyone access"\n3. Internet connection');
+  } else if(done>0){
+    toast('Push สำเร็จ '+done+' รายการ ✓');
+  } else {
+    toast('ไม่มีข้อมูลให้ push');
+  }
 }
 
 async function syncNow() {
