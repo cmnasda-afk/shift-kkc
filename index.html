@@ -1148,12 +1148,24 @@ function renderStock(){
   const lbn = latestByName();
   let html = '';
 
-  // ── Legend ──
-  html += `<div style="display:flex;gap:6px;padding:8px 12px;background:var(--surface);border-bottom:0.5px solid var(--border);overflow-x:auto">
+  // ── Start check button + Legend ──
+  const _today=todayStr();
+  const _allItems=getAllCats().reduce((a,c)=>[...a,...c.items],[]);
+  const _checked=_allItems.filter(it=>{const e=lbn[it.name];return e&&e.date===_today;}).length;
+  const _total=_allItems.length;
+  const _done=_checked>=_total;
+
+  html += `<div style="padding:10px 12px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <button onclick="startStockCheck()" style="width:100%;padding:14px;background:${_done?'var(--green-light)':'var(--green)'};color:${_done?'var(--green)':'#fff'};border:${_done?'1.5px solid var(--green-mid)':'none'};border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">
+      ${_done?'✅ เช็คครบแล้ว '+_total+' รายการ':'📋 เริ่มเช็คสต็อก ('+_checked+'/'+_total+')'}
+    </button>
+  </div>`;
+
+  html += `<div style="display:flex;gap:6px;padding:6px 12px;background:var(--surface);border-bottom:0.5px solid var(--border);overflow-x:auto">
     <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap"><div style="width:8px;height:8px;border-radius:2px;background:var(--surface2)"></div>รอบก่อน</div>
     <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap"><div style="width:8px;height:8px;border-radius:2px;background:#dbeeff"></div>รับเข้า</div>
     <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--green);white-space:nowrap"><div style="width:8px;height:8px;border-radius:2px;background:var(--green-light)"></div>ยอดตอนนี้</div>
-    <div style="margin-left:auto;font-size:10px;color:var(--text3)">${Object.keys(lbn).length}/${getAllCats().reduce((a,c)=>a+c.items.length,0)} รายการ</div>
+    <div style="margin-left:auto;font-size:10px;color:var(--text3)">${_checked}/${_total} รายการ</div>
   </div>`;
 
   getAllCats().forEach(cat => {
@@ -2589,6 +2601,18 @@ function clearAllData(){
 // ══════════════════════════════════════════════════════════
 // DRAWERS — STOCK
 // ══════════════════════════════════════════════════════════
+function startStockCheck(){
+  const lbn=latestByName();
+  const today=todayStr();
+  const allItems=getAllCats().reduce((a,c)=>[...a,...c.items],[]);
+  const unchecked=allItems.find(it=>{const e=lbn[it.name];return !e||e.date!==today;});
+  if(unchecked){
+    openStockDrawer(unchecked.name,unchecked.unit);
+  } else {
+    toast('เช็คครบทุกรายการแล้ว ✓');
+  }
+}
+
 function openStockDrawer(name,unit){
   const lbn=latestByName();
   const e=lbn[name];
