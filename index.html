@@ -664,7 +664,7 @@ const LS = {
   customMenus:'shiftv3_custommenus'
 };
 
-const TG_DEFAULTS={token:'8612555113:AAFl5hG68Tjoj01b01si-YWL8M6iPw_SQjI',chatId:'-1003775060614',stockTopicId:'42',revenueTopicId:'5'};
+const TG_DEFAULTS={token:'8612555113:AAFl5hG68Tjoj01b01si-YWL8M6iPw_SQjI',chatId:'-1003775060614',stockTopicId:'42',revenueTopicId:'5',financeChatId:'-1003819730144',financeTopicId:'9'};
 const DEFAULT_BAKERY=[
   {name:'ครัวซองค์',costPerPc:63,sellingPrice:105},
   {name:'สตรอว์เบอร์รี่ช็อตเค้ก',costPerPc:86.25,sellingPrice:140},
@@ -3498,6 +3498,48 @@ function sendTelegramMsg(msg,topicId){
 function sendTgStock(msg){return sendTelegramMsg(msg,settings.stockTopicId||TG_DEFAULTS.stockTopicId);}
 // helper: ส่งไป topic รายรับ
 function sendTgRevenue(msg){return sendTelegramMsg(msg,settings.revenueTopicId||TG_DEFAULTS.revenueTopicId);}
+// helper: ส่งไป topic Finance (Manager)
+function sendTgFinance(msg){
+  if(_tgTestMode){return sendTelegramMsg(msg);}
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.financeChatId||TG_DEFAULTS.financeChatId;
+  const topicId=settings.financeTopicId||TG_DEFAULTS.financeTopicId;
+  if(!token||!chatId)return Promise.resolve({ok:false});
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),15000);
+  const body={chat_id:chatId,text:msg,disable_web_page_preview:true};
+  if(topicId)body.message_thread_id=parseInt(topicId);
+  return fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
+}
+function sendTgFinancePhoto(b64,caption){
+  if(_tgTestMode)return Promise.resolve({ok:true});
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.financeChatId||TG_DEFAULTS.financeChatId;
+  const topicId=settings.financeTopicId||TG_DEFAULTS.financeTopicId;
+  if(!token||!chatId)return Promise.resolve({ok:false});
+  const byteStr=atob(b64.split(',')[1]);const mime=b64.split(',')[0].match(/:(.*?);/)[1];
+  const arr=new Uint8Array(byteStr.length);for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
+  const blob=new Blob([arr],{type:mime});const fd=new FormData();
+  fd.append('chat_id',chatId);if(topicId)fd.append('message_thread_id',topicId);
+  if(caption)fd.append('caption',caption);fd.append('photo',blob,'photo.jpg');
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),30000);
+  return fetch('https://api.telegram.org/bot'+token+'/sendPhoto',{method:'POST',body:fd,signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
+}
+function sendTgFinanceDocument(blob,filename,caption){
+  if(_tgTestMode)return Promise.resolve({ok:true});
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.financeChatId||TG_DEFAULTS.financeChatId;
+  const topicId=settings.financeTopicId||TG_DEFAULTS.financeTopicId;
+  if(!token||!chatId)return Promise.resolve({ok:false});
+  const fd=new FormData();fd.append('chat_id',chatId);
+  if(topicId)fd.append('message_thread_id',topicId);
+  if(caption)fd.append('caption',caption);fd.append('document',blob,filename);
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),30000);
+  return fetch('https://api.telegram.org/bot'+token+'/sendDocument',{method:'POST',body:fd,signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
+}
 // helper: ส่งรูปไป topic รายรับ
 function sendTgRevenuePhoto(b64,caption){
   if(_tgTestMode)return Promise.resolve({ok:true});
@@ -3972,13 +4014,11 @@ function buildRevenueSummaryText(date){
 }
 
 function sendRevenueTelegram(date){
-  const token=settings.token||TG_DEFAULTS.token,chatId=settings.chatId||TG_DEFAULTS.chatId;
-  if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const msg=buildRevenueSummaryText(date);
-  _showConfirmSend('ยืนยันส่งสรุปรายรับ',msg,()=>{
-    toast('กำลังส่ง...');
-    sendTgRevenue(msg).then(r=>{
-      if(r?.ok)toast('ส่งสรุปรายรับสำเร็จ ✓');
+  _showConfirmSend('ยืนยันส่งสรุปรายรับ → Finance',msg,()=>{
+    toast('กำลังส่ง → Finance...');
+    sendTgFinance(msg).then(r=>{
+      if(r?.ok)toast('ส่งสรุปรายรับ → Finance สำเร็จ ✓');
       else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
     }).catch(()=>alert('ส่งไม่สำเร็จ'));
   });
