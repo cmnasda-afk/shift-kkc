@@ -3275,13 +3275,31 @@ function renderBakeryTab(){
   const totalRecv=Object.values(agg).reduce((s,d)=>s+(d.received||0),0);
   const totalRemain=Object.values(agg).reduce((s,d)=>s+(d.remaining||0),0);
   const totalSold=Math.max(0,totalRecv-totalRemain);
+  let totalRevenue=0;
+  bakeryItems.forEach(b=>{
+    const d=agg[b.name]||{received:0,remaining:0};
+    const sold=Math.max(0,(d.received||0)-(d.remaining||0));
+    totalRevenue+=sold*(parseFloat(b.sellingPrice)||0);
+  });
 
-  let html=`<div style="background:var(--surface);border-bottom:0.5px solid var(--border);padding:12px 16px">
-    <div style="font-size:14px;font-weight:600;color:var(--text)">🥐 เบเกอรี่ · ${rounds.length} รอบ</div>
-    <div style="font-size:11px;color:var(--text2);margin-top:2px">กรอกรับมา/เหลือ แยกตามรอบ แล้วกดบันทึก</div>
-    ${isManager?`<div style="margin-top:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">เลือกวันที่</label><input type="date" id="bkt-date" value="${selDate}" max="${today}" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font);font-size:13px" onchange="renderContent('bakery')"></div>`:''}
-    ${totalRecv?`<div style="margin-top:8px;padding:8px 10px;background:var(--green-light);border-radius:var(--r);font-size:12px;color:var(--green);font-weight:600">
-      รวมทุกรอบ: รับ ${totalRecv} · เหลือ ${totalRemain} · ขายได้ ${totalSold} ชิ้น</div>`:''}
+  // Header + สรุปยอดใหญ่
+  let html=`<div style="background:var(--green);color:#fff;padding:14px 16px;border-bottom:0.5px solid var(--border)">
+    <div style="font-size:15px;font-weight:700;margin-bottom:2px">🥐 เบเกอรี่</div>
+    <div style="font-size:11px;opacity:0.9">${rounds.length} รอบ · กรอกรับมา/เหลือ แล้วระบบจะคำนวณยอดขายอัตโนมัติ</div>
+    ${isManager?`<input type="date" id="bkt-date" value="${selDate}" max="${today}" style="width:100%;margin-top:8px;padding:6px 8px;border:none;border-radius:var(--r);font-family:var(--font);font-size:12px;color:var(--text)" onchange="renderContent('bakery')">`:''}
+  </div>`;
+
+  // สรุปการ์ด
+  html+=`<div style="padding:12px 16px;background:#fffbe8;border-bottom:1px solid #f0d000">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+      <div><div style="font-size:10px;color:var(--text2)">รับมา</div><div style="font-size:20px;font-weight:700;color:var(--green)">${totalRecv}</div><div style="font-size:9px;color:var(--text3)">ชิ้น</div></div>
+      <div><div style="font-size:10px;color:var(--text2)">เหลือ</div><div style="font-size:20px;font-weight:700;color:var(--amber)">${totalRemain}</div><div style="font-size:9px;color:var(--text3)">ชิ้น</div></div>
+      <div><div style="font-size:10px;color:var(--text2)">ขายได้</div><div style="font-size:20px;font-weight:700;color:#2a7ab0">${totalSold}</div><div style="font-size:9px;color:var(--text3)">ชิ้น</div></div>
+    </div>
+    ${totalRevenue>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0d000;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:600;color:var(--text2)">💰 รายได้รวม</span>
+      <span style="font-size:20px;font-weight:700;color:var(--green);font-family:var(--mono)">${totalRevenue.toLocaleString()} ฿</span>
+    </div>`:''}
   </div>`;
 
   rounds.forEach((round,ri)=>{
@@ -3289,28 +3307,32 @@ function renderBakeryTab(){
     const rRecv=Object.values(rItems).reduce((s,d)=>s+(d.received||0),0);
     const rRemain=Object.values(rItems).reduce((s,d)=>s+(d.remaining||0),0);
     const rSold=Math.max(0,rRecv-rRemain);
-    html+=`<div style="background:var(--amber-light,rgba(196,124,21,0.06));border-bottom:0.5px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:8px">
-      <div style="flex:1;font-size:13px;font-weight:700;color:var(--amber)">📋 รอบ ${ri+1}${rRecv?` — รับ ${rRecv} · ขาย ${rSold}`:''}</div>
+    html+=`<div style="background:#fff3e0;border-bottom:1px solid var(--amber);padding:8px 16px;display:flex;align-items:center;gap:8px">
+      <div style="flex:1;font-size:13px;font-weight:700;color:var(--amber)">📋 รอบ ${ri+1}${rRecv?` · รับ ${rRecv} · ขาย ${rSold}`:''}</div>
       ${rounds.length>1?`<button onclick="deleteBakeryRound(${ri})" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font)">ลบรอบ</button>`:''}
     </div>`;
     bakeryItems.forEach((b,idx)=>{
       const d=rItems[b.name]||{received:0,remaining:0};
       const sold=Math.max(0,(d.received||0)-(d.remaining||0));
-      html+=`<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);background:var(--surface)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <div style="font-size:13px;font-weight:600;color:var(--text);flex:1">${esc(b.name)}</div>
-          ${sold>0?`<div style="font-size:11px;color:var(--green);font-weight:600">ขาย ${sold}${b.sellingPrice?' · ฿'+(sold*b.sellingPrice).toLocaleString():''}</div>`:''}
+      const revenue=sold*(parseFloat(b.sellingPrice)||0);
+      html+=`<div style="padding:8px 12px;border-bottom:0.5px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:6px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</div>
+          ${sold>0?`<div style="font-size:10px;color:var(--green);font-weight:600;margin-top:1px">ขาย ${sold}${revenue>0?' · ฿'+revenue.toLocaleString():''}</div>`:'<div style="font-size:9px;color:var(--text3);margin-top:1px">${b.sellingPrice?'฿'+b.sellingPrice+'/ชิ้น':''}</div>'}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div>
-            <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">📥 รับมา</div>
-            <input type="number" value="${d.received||''}" id="bkt-${ri}-recv-${idx}" placeholder="0" min="0"
-              style="width:100%;background:#fff;border:1px solid var(--green-mid);border-radius:var(--r);padding:8px;font-size:16px;font-weight:700;color:var(--green);font-family:var(--mono);outline:none;text-align:center">
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <div style="text-align:center">
+            <div style="font-size:9px;color:var(--green);font-weight:600">รับ</div>
+            <input type="number" value="${d.received||''}" id="bkt-${ri}-recv-${idx}" placeholder="0" min="0" oninput="bakeryLivePreview(${ri},${idx})"
+              style="width:58px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--r);padding:6px 4px;font-size:16px;font-weight:700;color:var(--green);font-family:var(--mono);outline:none;text-align:center">
           </div>
-          <div>
-            <div style="font-size:10px;color:${d.remaining<=2?'var(--red)':'var(--amber)'};font-weight:600;margin-bottom:2px">📦 เหลือ</div>
-            <input type="number" value="${d.remaining||''}" id="bkt-${ri}-remain-${idx}" placeholder="0" min="0"
-              style="width:100%;background:#fff;border:1px solid ${d.remaining<=2?'var(--red)':'var(--amber)'};border-radius:var(--r);padding:8px;font-size:16px;font-weight:700;color:${d.remaining<=2?'var(--red)':'var(--amber)'};font-family:var(--mono);outline:none;text-align:center">
+          <div style="text-align:center">
+            <div style="font-size:9px;color:var(--amber);font-weight:600">เหลือ</div>
+            <input type="number" value="${d.remaining||''}" id="bkt-${ri}-remain-${idx}" placeholder="0" min="0" oninput="bakeryLivePreview(${ri},${idx})"
+              style="width:58px;background:#fff;border:1.5px solid var(--amber);border-radius:var(--r);padding:6px 4px;font-size:16px;font-weight:700;color:var(--amber);font-family:var(--mono);outline:none;text-align:center">
+          </div>
+          <div style="text-align:center;min-width:50px;padding-top:14px">
+            <div id="bkt-${ri}-sold-${idx}" style="font-size:14px;font-weight:700;color:#2a7ab0;font-family:var(--mono)">${sold||'—'}</div>
           </div>
         </div>
       </div>`;
@@ -3318,13 +3340,19 @@ function renderBakeryTab(){
   });
 
   html+=`<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
-    <button onclick="addBakeryRound()" style="background:var(--surface2);color:var(--amber);border:1.5px dashed var(--amber);border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">+ เพิ่มรอบใหม่</button>
-    <div style="display:flex;gap:8px">
-      <button onclick="saveBakeryTabAll()" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึกทั้งหมด ✓</button>
-      <button onclick="saveBakeryTabAll(true)" style="flex:1;background:var(--green2);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">บันทึก + ส่ง Telegram 📩</button>
-    </div>
-  </div>`;
+    <button onclick="addBakeryRound()" style="background:#fff3e0;color:var(--amber);border:1.5px dashed var(--amber);border-radius:var(--r);padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">+ เพิ่มรอบใหม่</button>
+    <button onclick="saveBakeryTabAll()" style="background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด</button>
+    <button onclick="saveBakeryTabAll(true)" style="background:#2a7ab0;color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">📩 บันทึก + ส่ง Telegram</button>
+  </div><div style="height:20px"></div>`;
   return html;
+}
+
+function bakeryLivePreview(ri,idx){
+  const recv=parseFloat(document.getElementById('bkt-'+ri+'-recv-'+idx)?.value)||0;
+  const remain=parseFloat(document.getElementById('bkt-'+ri+'-remain-'+idx)?.value)||0;
+  const sold=Math.max(0,recv-remain);
+  const soldEl=document.getElementById('bkt-'+ri+'-sold-'+idx);
+  if(soldEl) soldEl.textContent=sold||'—';
 }
 
 function saveBakeryTabAll(sendTg){
