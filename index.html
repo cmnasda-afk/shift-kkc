@@ -2605,7 +2605,7 @@ function clearAllData(){
 function startStockCheck(){
   const lbn=latestByName();
   const today=todayStr();
-  const renderItem=(item,cat)=>{
+  const renderItem=(item,loc)=>{
     const e=lbn[item.name]||{};
     const history=getItemHistory(item.name);
     const prev=history.length>0?history[0]:null;
@@ -2617,74 +2617,66 @@ function startStockCheck(){
       +'<div style="font-size:13px;font-weight:500;color:var(--text)">'+(checked?'✅ ':'')+esc(item.name)+'</div>'
       +'<div style="font-size:10px;color:var(--text3);margin-top:2px">ยอดเดิม: <b style="color:var(--text2)">'+prevQty+' '+esc(item.unit)+'</b>'+(prevDate?' · '+prevDate:'')+'</div>'
       +'</div>'
-      +'<button onclick="toggleItemLocation(\''+escAttr(item.name)+'\')" title="สลับหน้าร้าน/หลังร้าน" style="background:none;border:1px solid var(--border2);border-radius:var(--r);padding:4px 6px;font-size:14px;cursor:pointer">'+((minStock[item.name]||{}).location==='back'?'📦':'🏪')+'</button>'
-      +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="" placeholder="0"'
-      +' style="width:75px;background:var(--surface2);border:1px solid '+(checked?'var(--green-mid)':'var(--border2)')+';border-radius:var(--r);padding:8px 10px;font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:right;outline:none">'
+      +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" data-stock-loc="'+loc+'" value="" placeholder="0"'
+      +' style="width:80px;background:var(--surface2);border:1px solid '+(checked?'var(--green-mid)':'var(--border2)')+';border-radius:var(--r);padding:8px 10px;font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:right;outline:none">'
       +'<span style="font-size:10px;color:var(--text2);min-width:24px">'+esc(item.unit)+'</span>'
       +'</div>';
   };
-  const isFront=(name)=>(minStock[name]||{}).location!=='back';
 
   let html='<div style="padding:12px 16px;background:var(--green);color:#fff;font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10">'
     +'<span>📋 เช็คสต็อกทั้งหมด</span>'
     +'<button onclick="saveAllStockCheck()" style="background:#fff;color:var(--green);border:none;border-radius:var(--r);padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">บันทึกทั้งหมด</button>'
-    +'</div>';
+    +'</div>'
+    +'<div style="padding:10px 16px;background:#fffbe8;border-bottom:1px solid #f0d000;font-size:11px;color:#7a5800;text-align:center">💡 กรอกยอดทั้ง 2 ส่วน — ระบบจะรวมเป็นยอดเดียวอัตโนมัติ (ใส่ 0 ถ้าไม่มี)</div>';
 
   // 🏪 หน้าร้าน
-  html+='<div style="background:#e8f5e9;padding:10px 16px;font-size:13px;font-weight:700;color:#1a5a30;border-bottom:1.5px solid var(--green-mid)">🏪 สต็อกหน้าร้าน</div>';
-  let frontHasItems=false;
+  html+='<div style="background:#e8f5e9;padding:10px 16px;font-size:14px;font-weight:700;color:#1a5a30;border-bottom:1.5px solid var(--green-mid)">🏪 สต็อกหน้าร้าน</div>';
   getAllCats().forEach(cat=>{
-    const items=cat.items.filter(it=>isFront(it.name));
-    if(!items.length)return;
-    frontHasItems=true;
     html+='<div style="background:var(--bg2);padding:6px 16px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:0.5px solid var(--border)">'+esc(cat.cat)+'</div>';
-    items.forEach(item=>{html+=renderItem(item,cat);});
+    cat.items.forEach(item=>{html+=renderItem(item,'front');});
   });
-  if(!frontHasItems) html+='<div style="padding:14px 16px;color:var(--text3);font-size:12px;text-align:center">— ไม่มีรายการ —</div>';
 
   // 📦 หลังร้าน
-  html+='<div style="background:#fff3e0;padding:10px 16px;font-size:13px;font-weight:700;color:#c07800;border-bottom:1.5px solid var(--amber);margin-top:8px">📦 สต็อกหลังร้าน</div>';
-  let backHasItems=false;
+  html+='<div style="background:#fff3e0;padding:10px 16px;font-size:14px;font-weight:700;color:#c07800;border-bottom:1.5px solid var(--amber);margin-top:8px">📦 สต็อกหลังร้าน</div>';
   getAllCats().forEach(cat=>{
-    const items=cat.items.filter(it=>!isFront(it.name));
-    if(!items.length)return;
-    backHasItems=true;
     html+='<div style="background:var(--bg2);padding:6px 16px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:0.5px solid var(--border)">'+esc(cat.cat)+'</div>';
-    items.forEach(item=>{html+=renderItem(item,cat);});
+    cat.items.forEach(item=>{html+=renderItem(item,'back');});
   });
-  if(!backHasItems) html+='<div style="padding:14px 16px;color:var(--text3);font-size:12px;text-align:center">— ยังไม่มีรายการ — กดปุ่ม 🏪 ที่รายการเพื่อย้าย</div>';
 
   html+='<div style="padding:12px 16px">'
-    +'<button onclick="saveAllStockCheck()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด</button>'
+    +'<button onclick="saveAllStockCheck()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด (รวมยอดอัตโนมัติ)</button>'
     +'</div><div style="height:20px"></div>';
   document.getElementById('main-content').innerHTML=html;
 }
 
-function toggleItemLocation(name){
-  if(!minStock[name])minStock[name]={};
-  minStock[name].location=minStock[name].location==='back'?'front':'back';
-  lsSave(LS.minstock,minStock);
-  startStockCheck();
-}
-
 function saveAllStockCheck(){
   const inputs=document.querySelectorAll('[data-stock-name]');
-  let count=0;
+  // group by name: sum front + back
+  const totals={};
   inputs.forEach(input=>{
     const name=input.dataset.stockName;
     const unit=input.dataset.stockUnit;
+    const loc=input.dataset.stockLoc;
     const val=input.value.trim();
     if(val==='')return;
     const qty=parseFloat(val);
     if(isNaN(qty))return;
+    if(!totals[name]) totals[name]={unit,front:0,back:0,hasInput:false};
+    totals[name][loc]=(totals[name][loc]||0)+qty;
+    totals[name].hasInput=true;
+  });
+  let count=0;
+  Object.entries(totals).forEach(([name,t])=>{
+    if(!t.hasInput)return;
+    const totalQty=(t.front||0)+(t.back||0);
     const ms=minStock[name]||{};
     const minVal=parseFloat(ms.min)||0;
     let status='ok';
     if(minVal>0){
-      if(qty<=0) status='out';
-      else if(qty<=minVal) status='low';
+      if(totalQty<=0) status='out';
+      else if(totalQty<=minVal) status='low';
     }
-    const entry={name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:''};
+    const entry={name,unit:t.unit,qty:String(totalQty),qtyFront:String(t.front||0),qtyBack:String(t.back||0),status,type:'stock',date:todayStr(),ts:Date.now(),note:''};
     entries.push(entry);
     count++;
   });
