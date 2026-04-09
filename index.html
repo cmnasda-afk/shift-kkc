@@ -2619,7 +2619,7 @@ function startStockCheck(){
         +'<div style="font-size:13px;font-weight:500;color:var(--text)">'+(checked?'✅ ':'')+esc(item.name)+'</div>'
         +'<div style="font-size:10px;color:var(--text3)">'+esc(item.unit)+'</div>'
         +'</div>'
-        +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="'+curQty+'" placeholder="0"'
+        +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="" placeholder="0"'
         +' style="width:80px;background:var(--surface2);border:1px solid '+(checked?'var(--green-mid)':'var(--border2)')+';border-radius:var(--r);padding:8px 10px;font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:right;outline:none">'
         +'<span style="font-size:11px;color:var(--text2);min-width:30px">'+esc(item.unit)+'</span>'
         +'</div>';
