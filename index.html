@@ -3767,28 +3767,29 @@ async function syncNow() {
   if (!settings.scriptUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheets URL'); return; }
   const btn = document.getElementById('sync-btn');
   btn.textContent = '↻ ...';
+  let updated=0, received=0;
   try {
     const syncCtrl=new AbortController();
-    const syncTimer=setTimeout(()=>syncCtrl.abort(),15000);
-    // ดึง balance (ยอดคงเหลือ) จาก Sheets
+    const syncTimer=setTimeout(()=>syncCtrl.abort(),30000);
     const rb = await fetch(`${settings.scriptUrl}?action=getBalance`,{signal:syncCtrl.signal}).then(r => r.json());
+    console.log('sync getBalance response:',rb);
     if (rb.balance && rb.balance.length) {
-      // อัปเดต entries จาก balance
+      received=rb.balance.length;
       rb.balance.forEach(b => {
-        if (!b.name || b.currentQty === '') return;
-        const existing = entries.find(e => e.name === b.name && e.type === 'stock');
-        if (!existing || (b.updatedAt && new Date(b.updatedAt) > new Date(existing.ts))) {
-          entries = entries.filter(e => !(e.name === b.name && e.type === 'stock'));
-          entries.unshift({
-            id: 'sync_' + b.name.replace(/\W/g,'_'),
-            name: b.name, unit: b.unit,
-            qty: b.currentQty, status: b.currentStatus || 'ok',
-            expDate: b.expDate || '', note: b.note || '',
-            recvDate: b.lastRecvDate || '', supplier: b.lastRecvSupplier || '',
-            date: b.lastCheckDate || todayStr(),
-            ts: Date.now(), type: 'stock'
-          });
-        }
+        if (!b.name) return;
+        if (b.currentQty===undefined||b.currentQty===null||b.currentQty==='') return;
+        // ลบ entries เก่าของชื่อนี้ทั้งหมด (stock) แล้วใส่ตัวใหม่
+        entries = entries.filter(e => !(e.name === b.name && e.type === 'stock'));
+        entries.unshift({
+          id: 'sync_' + String(b.name).replace(/\W/g,'_') + '_' + Date.now(),
+          name: b.name, unit: b.unit||'',
+          qty: String(b.currentQty), status: b.currentStatus || 'ok',
+          expDate: b.expDate || '', note: b.note || '',
+          recvDate: b.lastRecvDate || '', supplier: b.lastRecvSupplier || '',
+          date: b.lastCheckDate || todayStr(),
+          ts: Date.now(), type: 'stock'
+        });
+        updated++;
       });
       saveEntries();
     }
@@ -3798,7 +3799,7 @@ async function syncNow() {
     if (rc.items) { customItems = rc.items; saveCustom(); }
 
     clearTimeout(syncTimer);
-    toast('ซิงค์สำเร็จ ✓');
+    toast('ซิงค์สำเร็จ '+updated+'/'+received+' รายการ ✓',3500);
     renderContent(currentTab);
   } catch(e) {
     clearTimeout(syncTimer);

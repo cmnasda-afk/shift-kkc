@@ -89,40 +89,42 @@ function getBalance() {
   if (data.length <= 1) return out({ ok: true, balance: [] });
   const headers = data[0];
   const rows = data.slice(1);
+  const idx = (h) => headers.indexOf(h);
 
-  // map by item name: keep latest stock entry, plus latest receive info
+  // map by item name: keep latest entry (any type) for balance
   const byName = {};
   rows.forEach(r => {
-    const type = r[headers.indexOf('type')];
-    const name = r[headers.indexOf('name')];
+    const name = r[idx('name')];
     if (!name) return;
-    const ts = Number(r[headers.indexOf('ts')]) || 0;
-    if (!byName[name]) byName[name] = {};
+    const type = r[idx('type')];
+    const ts = Number(r[idx('ts')]) || 0;
+    if (!byName[name]) byName[name] = { name: name, stockTs: 0, recvTs: 0 };
     const rec = byName[name];
 
-    if (type === 'stock') {
-      if (!rec.stockTs || ts > rec.stockTs) {
+    // ใช้ stock entry หรือ entry ล่าสุดที่มี qty ในการนับ balance
+    if (type === 'stock' || !rec.currentQty) {
+      if (ts > (rec.stockTs || 0)) {
         rec.stockTs = ts;
-        rec.name = name;
-        rec.unit = r[headers.indexOf('unit')];
-        rec.currentQty = r[headers.indexOf('qty')];
-        rec.currentStatus = r[headers.indexOf('status')];
-        rec.expDate = r[headers.indexOf('expDate')];
-        rec.note = r[headers.indexOf('note')];
-        rec.lastCheckDate = r[headers.indexOf('date')];
-        rec.updatedAt = r[headers.indexOf('updatedAt')];
+        rec.unit = r[idx('unit')];
+        rec.currentQty = String(r[idx('qty')] || '');
+        rec.currentStatus = r[idx('status')] || 'ok';
+        rec.expDate = r[idx('expDate')] || '';
+        rec.note = r[idx('note')] || '';
+        rec.lastCheckDate = r[idx('date')] || '';
+        rec.updatedAt = r[idx('updatedAt')] || '';
       }
-    } else if (type === 'receive') {
-      if (!rec.recvTs || ts > rec.recvTs) {
+    }
+    if (type === 'receive') {
+      if (ts > (rec.recvTs || 0)) {
         rec.recvTs = ts;
-        rec.lastRecvDate = r[headers.indexOf('recvDate')] || r[headers.indexOf('date')];
-        rec.lastRecvSupplier = r[headers.indexOf('supplier')];
+        rec.lastRecvDate = r[idx('recvDate')] || r[idx('date')] || '';
+        rec.lastRecvSupplier = r[idx('supplier')] || '';
       }
     }
   });
 
-  const balance = Object.values(byName).filter(b => b.currentQty !== undefined);
-  return out({ ok: true, balance });
+  const balance = Object.values(byName).filter(b => b.currentQty !== undefined && b.currentQty !== '');
+  return out({ ok: true, balance: balance });
 }
 
 function getCustomItems() {
