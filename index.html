@@ -3375,6 +3375,74 @@ function deleteBakery(idx){
   toast('ลบแล้ว');renderContent('settings');
 }
 
+// helper: ส่งไฟล์เอกสารไป Telegram
+function sendTgDocument(blob,filename,caption,topicId){
+  if(_tgTestMode)return Promise.resolve({ok:true});
+  const token=settings.token||TG_DEFAULTS.token;
+  const chatId=settings.chatId||TG_DEFAULTS.chatId;
+  if(!token||!chatId)return Promise.resolve({ok:false});
+  const fd=new FormData();
+  fd.append('chat_id',chatId);
+  if(topicId)fd.append('message_thread_id',topicId);
+  if(caption)fd.append('caption',caption);
+  fd.append('document',blob,filename);
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),30000);
+  return fetch('https://api.telegram.org/bot'+token+'/sendDocument',{
+    method:'POST',body:fd,signal:ctrl.signal
+  }).then(r=>{clearTimeout(timer);return r.json();}).catch(e=>{clearTimeout(timer);throw e;});
+}
+
+function buildStockCSVBlob(){
+  const lbn=latestByName();
+  let csv='หมวด,ชื่อรายการ,หน่วย,ยอดรอบก่อน,ยอดปัจจุบัน,เปลี่ยนแปลง,สถานะ,ต้องสั่ง\n';
+  getAllCats().forEach(cat=>cat.items.forEach(item=>{
+    const e=lbn[item.name]||{};
+    const history=getItemHistory(item.name);
+    const prev=history.length>1?history[1]:null;
+    const prevQty=prev?prev.qty:'';
+    const curQty=e.qty!==undefined&&e.qty!==''?e.qty:'';
+    const diff=prevQty!==''&&curQty!==''?(parseFloat(curQty)-parseFloat(prevQty)):'';
+    const ms=minStock[item.name]||{};
+    const minVal=parseFloat(ms.min)||0;
+    const st=e.status==='ok'?'ปกติ':e.status==='low'?'น้อย':e.status==='out'?'หมด':'—';
+    const needOrder=minVal>0&&curQty!==''&&parseFloat(curQty)<=minVal?'ต้องสั่ง':'ไม่ต้อง';
+    const row=[cat.cat,item.name,item.unit,prevQty,curQty,diff,st,needOrder];
+    csv+=row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n';
+  }));
+  return new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+}
+
+function buildStockHTMLBlob(){
+  const lbn=latestByName();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  let h='<html><head><meta charset="utf-8"><style>body{font-family:sans-serif;padding:16px;font-size:11px}h1{font-size:16px}table{width:100%;border-collapse:collapse}th{background:#1a5a30;color:#fff;padding:5px 6px;text-align:left;font-size:10px}td{padding:4px 6px;border-bottom:1px solid #ddd;font-size:11px}.cat{background:#e8f5e9;font-weight:700;color:#1a5a30}.low{color:#c07800;font-weight:700}.out{color:#c00;font-weight:700}</style></head><body>';
+  h+='<h1>สรุปสต็อก SHIFT KKC</h1><p style="color:#888;font-size:11px">'+dateStr+'</p>';
+  h+='<table><tr><th>รายการ</th><th>หน่วย</th><th>ก่อน</th><th>ปัจจุบัน</th><th>+/-</th><th>สถานะ</th><th>สั่ง</th></tr>';
+  getAllCats().forEach(cat=>{
+    h+='<tr class="cat"><td colspan="7">'+esc(cat.cat)+'</td></tr>';
+    cat.items.forEach(item=>{
+      const e=lbn[item.name]||{};
+      const history=getItemHistory(item.name);
+      const prev=history.length>1?history[1]:null;
+      const pq=prev?prev.qty:'—';
+      const cq=e.qty!==undefined&&e.qty!==''?e.qty:'—';
+      const diff=prev&&e.qty!==undefined&&e.qty!==''?(parseFloat(e.qty)-parseFloat(prev.qty)):null;
+      const ds=diff!==null?(diff>=0?'+':'')+diff.toFixed(1):'';
+      const ms=minStock[item.name]||{};
+      const minVal=parseFloat(ms.min)||0;
+      const cn=parseFloat(e.qty)||0;
+      const st=e.status==='ok'?'ปกติ':e.status==='low'?'น้อย':e.status==='out'?'หมด':'—';
+      const cls=e.status||'';
+      const no=minVal>0&&cn<=minVal;
+      h+='<tr><td>'+esc(item.name)+'</td><td>'+esc(item.unit)+'</td><td>'+pq+'</td><td style="font-weight:700">'+cq+'</td><td style="color:'+(diff>0?'green':diff<0?'red':'#888')+'">'+ds+'</td><td class="'+cls+'">'+st+'</td><td'+(no?' class="out"':'')+'>'+(no?'⚠ สั่ง':'✓')+'</td></tr>';
+    });
+  });
+  h+='</table></body></html>';
+  return new Blob([h],{type:'text/html;charset=utf-8;'});
+}
+
 // ══════════════════════════════════════════════════════════
 // CUSTOM ITEMS
 // ══════════════════════════════════════════════════════════
@@ -4480,11 +4548,24 @@ function buildDailySummaryMsg(){
 }
 
 function sendTelegramSummary(){
-  toast('กำลังส่ง...');
-  sendTgStock(buildDailySummaryMsg()).then(r=>{
-    if(r?.ok) toast('ส่งสรุปรายวันสำเร็จ ✓');
-    else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
-  }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  const msg=buildDailySummaryMsg();
+  const topicId=settings.stockTopicId||TG_DEFAULTS.stockTopicId;
+  _showConfirmSend('📦 ยืนยันส่งสรุปสต็อก',msg+'\n\n📎 จะส่งไฟล์ CSV (Google Sheet) + HTML (PDF) ด้วย',()=>{
+    toast('กำลังส่ง...');
+    const dateFile=todayStr();
+    sendTgStock(msg).then(r=>{
+      if(!r?.ok){alert('ส่งข้อความไม่สำเร็จ: '+(r?.description||''));return;}
+      // send CSV
+      const csvBlob=buildStockCSVBlob();
+      sendTgDocument(csvBlob,'stock_'+dateFile+'.csv','📊 สต็อก Google Sheet',topicId).then(()=>{
+        // send HTML (PDF)
+        const htmlBlob=buildStockHTMLBlob();
+        sendTgDocument(htmlBlob,'stock_'+dateFile+'.html','📄 สต็อก PDF (เปิดในเบราว์เซอร์แล้ว Print > Save as PDF)',topicId).then(()=>{
+          toast('ส่งสรุป + CSV + PDF สำเร็จ ✓');
+        }).catch(()=>toast('ส่งไฟล์ PDF ไม่สำเร็จ'));
+      }).catch(()=>toast('ส่งไฟล์ CSV ไม่สำเร็จ'));
+    }).catch(()=>alert('ส่งไม่สำเร็จ'));
+  });
 }
 
 // ══════════════════════════════════════════════════════════
