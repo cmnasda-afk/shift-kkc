@@ -2663,7 +2663,7 @@ function startStockCheck(){
 function toggleItemLocation(name){
   if(!minStock[name])minStock[name]={};
   minStock[name].location=minStock[name].location==='back'?'front':'back';
-  lsSave(LS.minStock,minStock);
+  lsSave(LS.minstock,minStock);
   startStockCheck();
 }
 
