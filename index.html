@@ -4008,12 +4008,19 @@ function buildRevenueSummaryText(date){
     const cashDiff=actualCash-expectedCash;
     msg+=`- จำนวนจริงในลิ้นชัก = ${fmtBaht(actualCash)} บาท\n`;
     msg+=`- ส่วนต่าง = ${cashDiff>=0?'+':''}${fmtBaht(cashDiff)} บาท\n`;
-    if(actualCash>5000) msg+=`\n🏦 นำเงินออกเข้าธนาคาร = ${fmtBaht(actualCash-5000)} บาท\n💵 เก็บในลิ้นชัก = 5,000 บาท\n`;
   }
   if(totalBills) msg+=`🧾 บิลทั้งหมด ${totalBills} บิล\n`;
   // void/cancel
   if(voidAllAmt) msg+=`\n🚫 ทำลายบิล ${voidAllBills} บิล = ${fmtBaht(voidAllAmt)} บาท\n`;
   if(cancelBillAmt) msg+=`❌ ยกเลิก ${cancelBills} บิล = ${fmtBaht(cancelBillAmt)} บาท\n`;
+  // นำเงินออกเข้าธนาคาร — แสดงเสมอ
+  msg+=`\n🏦 เงินสดนำออกเข้าธนาคาร\n`;
+  msg+=`- จำนวนจริงในลิ้นชัก = ${actualCash?fmtBaht(actualCash):'(รอกรอก)'} บาท\n`;
+  msg+=`- เก็บไว้ในลิ้นชัก = 5,000 บาท\n`;
+  const _depAmt=actualCash>5000?actualCash-5000:0;
+  msg+=`- ส่วนต่างนำออก = ${fmtBaht(_depAmt)} บาท\n`;
+  if(_depAmt>0) msg+=`💰 นำออก ${fmtBaht(_depAmt)} บาท เพื่อเข้าธนาคาร\n`;
+  else if(actualCash>0) msg+=`✅ ไม่ต้องนำออก — เงินไม่เกิน 5,000 บาท\n`;
   msg+=`\n#revenue #shift_kkc`;
   return msg;
 }
