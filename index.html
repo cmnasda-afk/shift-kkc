@@ -1518,6 +1518,9 @@ function renderSettings(){
 
   <button class="setting-btn setting-btn-gold" onclick="saveSettingsForm()">บันทึกการตั้งค่า</button>
 
+  <button onclick="pushAllToSheet()" style="width:100%;padding:12px;margin-top:8px;background:#2a7ab0;color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">↑ Push ข้อมูลทั้งหมดไป Google Sheet (ครั้งแรก)</button>
+  <div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:center">ใช้เมื่อเครื่องนี้เป็นต้นทางที่มีข้อมูลสต็อกแล้ว</div>
+
   <div class="setting-group" style="margin-top:4px">
     <div class="setting-group-title">จัดการรายการสต็อก + ราคาวัตถุดิบ</div>
     ${getAllCats().map(cat=>`
@@ -3731,6 +3734,27 @@ async function pushToSheets(action, body) {
     const d = await res.json();
     return d.ok;
   } catch(e) { clearTimeout(timer); return false; }
+}
+
+async function pushAllToSheet(){
+  if(!settings.scriptUrl){toast('ยังไม่ได้ตั้งค่า Google Sheets URL');return;}
+  if(!confirm('Push ข้อมูลทั้งหมดในเครื่องนี้ไป Google Sheet?\n\nใช้เมื่อเป็นเครื่องต้นทาง เท่านั้น'))return;
+  const btn=document.getElementById('sync-btn');
+  if(btn)btn.textContent='↑ ...';
+  toast('กำลัง push...');
+  const lbn=latestByName();
+  const allStock=Object.values(lbn);
+  let done=0;
+  for(const e of allStock){
+    try{await pushToSheets('saveEntry',{entry:e});done++;}catch(err){}
+  }
+  // push receive entries
+  const recvs=entries.filter(e=>e.type==='receive');
+  for(const e of recvs){
+    try{await pushToSheets('saveReceive',{receive:e});done++;}catch(err){}
+  }
+  if(btn)btn.textContent='↻ ซิงค์';
+  toast('Push สำเร็จ '+done+' รายการ ✓');
 }
 
 async function syncNow() {
