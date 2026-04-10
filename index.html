@@ -5288,7 +5288,7 @@ function buildCashCounter(r,date,prefix,title){
     +'<div style="font-size:9px;color:var(--text3);margin-bottom:2px">'+label+'</div>'
     +'<input type="number" inputmode="numeric" id="ss-'+p+id+'" value="'+(r[p+id]||'')+'" placeholder="0" min="0"'
     +' oninput="calcCashTotal(\''+date+'\',\''+prefix+'\')"'
-    +' onchange="updateSummaryField(\''+date+'\',\''+p+id+'\',this.value)"'
+    +' onchange="saveCashField(\''+date+'\',\''+p+id+'\',this.value)"'
     +' style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:6px 4px;font-size:14px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:center;outline:none">'
     +'<div style="font-size:8px;color:var(--text3);margin-top:1px">× '+val+'</div>'
     +'</div>';
@@ -5314,6 +5314,12 @@ function buildCashCounter(r,date,prefix,title){
   h+='<div id="ss-'+prefix+'-calc-total" style="font-size:22px;font-weight:700;color:'+(prefix==='am'?'var(--green)':'var(--amber)')+';font-family:var(--mono)">'+(total?fmtBaht(total)+' ฿':'0 ฿')+'</div>';
   h+='</div></div>';
   return h;
+}
+
+function saveCashField(date,field,val){
+  if(!revenueLog[date])revenueLog[date]={};
+  revenueLog[date][field]=isNaN(parseFloat(val))?0:parseFloat(val);
+  saveRevenueLog();
 }
 
 function calcCashTotal(date,prefix){
