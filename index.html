@@ -4111,11 +4111,25 @@ function buildRevenueSummaryText(date){
 
 function sendRevenueTelegram(date){
   const msg=buildRevenueSummaryText(date);
-  _showConfirmSend('ยืนยันส่งสรุปรายรับ → Finance',msg,()=>{
+  const rv=revenueLog[date]||{};
+  const allPhotos=[...(rv.cashBillPhotos||[]),...(rv.morningCashPhotos||[]),...(rv.bankDepositPhotos||[])];
+  if(rv.bankDepositPhoto) allPhotos.push(rv.bankDepositPhoto);
+  const photoNote=allPhotos.length?'\n\n📷 จะส่งรูปหลักฐาน '+allPhotos.length+' รูปด้วย':'';
+  _showConfirmSend('ยืนยันส่งสรุปรายรับ → Finance',msg+photoNote,()=>{
     toast('กำลังส่ง → Finance...');
-    sendTgFinance(msg).then(r=>{
-      if(r?.ok)toast('ส่งสรุปรายรับ → Finance สำเร็จ ✓');
-      else alert('ส่งไม่สำเร็จ: '+(r?.description||''));
+    sendTgFinance(msg).then(res=>{
+      if(!res?.ok){alert('ส่งไม่สำเร็จ: '+(res?.description||''));return;}
+      if(!allPhotos.length){toast('ส่งสรุปรายรับ → Finance สำเร็จ ✓');return;}
+      let i=0;
+      const captions=['📸 เงินสดคู่บิล','☀️ เงินในเก๊ะเช้า','🏦 หลักฐานนำเงินออก'];
+      function sendNext(){
+        if(i>=allPhotos.length){toast('ส่ง Finance + '+allPhotos.length+' รูป สำเร็จ ✓');return;}
+        const cbpLen=(rv.cashBillPhotos||[]).length;
+        const mpLen=(rv.morningCashPhotos||[]).length;
+        const cap=i<cbpLen?'📸 เงินสดคู่บิล ('+(i+1)+')':i<cbpLen+mpLen?'☀️ เงินในเก๊ะเช้า':'🏦 หลักฐานนำเงินออก';
+        sendTgFinancePhoto(allPhotos[i],cap).then(()=>{i++;sendNext();}).catch(()=>toast('ส่งรูปบางรูปไม่สำเร็จ'));
+      }
+      sendNext();
     }).catch(()=>alert('ส่งไม่สำเร็จ'));
   });
 }
