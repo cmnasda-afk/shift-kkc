@@ -4872,6 +4872,41 @@ function renderSummaryScreen(date){
 
   ${sec('☀️ รอบเช้า — เงินในเก๊ะ')}
   ${row('openCash','เงินสดเริ่มต้น',r.openCash,'var(--text)','฿','ที่กะเช้านับ')}
+  <div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">💰 นับแยกเหรียญ/ธนบัตร</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      ${[['coin1','เหรียญ 1',1],['coin5','เหรียญ 5',5],['coin10','เหรียญ 10',10],['bill20','แบงค์ 20',20],['bill100','แบงค์ 100',100],['bill500','แบงค์ 500',500],['bill1000','แบงค์ 1,000',1000]].map(([id,label,val])=>`
+        <div style="text-align:center">
+          <div style="font-size:9px;color:var(--text3);margin-bottom:2px">${label}</div>
+          <input type="number" inputmode="numeric" id="ss-cash-${id}" value="${r['cash_'+id]||''}" placeholder="0" min="0"
+            onchange="updateSummaryField('${date}','cash_${id}',this.value);calcCashTotal('${date}')"
+            style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:6px 4px;font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:center;outline:none">
+          <div style="font-size:8px;color:var(--text3);margin-top:1px">× ${val.toLocaleString()}</div>
+        </div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px">
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--text3);margin-bottom:2px">เหรียญกอง</div>
+        <input type="number" inputmode="numeric" id="ss-cash-coinStack" value="${r.cash_coinStack||''}" placeholder="0" min="0"
+          onchange="updateSummaryField('${date}','cash_coinStack',this.value);calcCashTotal('${date}')"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:6px 4px;font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:center;outline:none">
+        <div style="font-size:8px;color:var(--text3);margin-top:1px">× 10</div>
+      </div>
+      <div style="grid-column:span 2;display:flex;align-items:center;justify-content:center;background:var(--green-light);border-radius:var(--r);padding:8px">
+        <div style="text-align:center">
+          <div style="font-size:9px;color:var(--text2)">รวมนับได้</div>
+          <div id="ss-cash-calc-total" style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--mono)">${(()=>{
+            const c=r;
+            const t=(parseInt(c.cash_coin1)||0)*1+(parseInt(c.cash_coin5)||0)*5+(parseInt(c.cash_coin10)||0)*10
+              +(parseInt(c.cash_coinStack)||0)*10
+              +(parseInt(c.cash_bill20)||0)*20+(parseInt(c.cash_bill100)||0)*100
+              +(parseInt(c.cash_bill500)||0)*500+(parseInt(c.cash_bill1000)||0)*1000;
+            return t?fmtBaht(t)+' ฿':'0 ฿';
+          })()}</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div style="padding:12px 16px;background:#e8f0fe;border-bottom:0.5px solid var(--border)">
     ${openCash?`<div style="font-size:18px;font-weight:700;color:#2a7ab0;margin-bottom:2px">ยอดเงินจริง ${fmtBaht(openCash)} ฿</div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:8px">เงินสดในเก๊ะตอนเปิดร้าน</div>`:''}
@@ -5269,6 +5304,17 @@ function deleteCashBillPhoto(date,idx){
   revenueLog[date].cashBillPhotos=photos;
   saveRevenueLog();renderSummaryScreen(date);
   toast('ลบรูปแล้ว');
+}
+
+function calcCashTotal(date){
+  const g=id=>parseInt(document.getElementById('ss-cash-'+id)?.value)||0;
+  const total=g('coin1')*1+g('coin5')*5+g('coin10')*10+g('coinStack')*10
+    +g('bill20')*20+g('bill100')*100+g('bill500')*500+g('bill1000')*1000;
+  const el=document.getElementById('ss-cash-calc-total');
+  if(el) el.textContent=total?fmtBaht(total)+' ฿':'0 ฿';
+  // auto fill openCash
+  const oc=document.getElementById('ss-openCash');
+  if(oc&&total>0){oc.value=total;updateSummaryField(date,'openCash',total);}
 }
 
 function handleMorningCashPhoto(input,date){
