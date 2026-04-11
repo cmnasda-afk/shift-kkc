@@ -3044,6 +3044,24 @@ async function saveReceiveEntry(){
   if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
     const msg=`📦 รับของเข้า SHIFT KKC\n${activeDrawerItem.name}\nจำนวน: ${qty} ${activeDrawerItem.unit}${supplier?'\nจาก: '+supplier:''}${priceTotal?'\nราคา: '+priceTotal+' ฿'+(pricePerUnit?' ('+pricePerUnit+' ฿/'+activeDrawerItem.unit+')':''):''}${expDate?'\nหมดอายุ: '+fmt(expDate):''}\n#receive #shift_kkc`;
     sendTgStock(msg);
+    // ส่งรูปที่ถ่ายไว้ไป stock topic
+    const _recvPhotos=Object.values(recvPhotos).filter(p=>p);
+    if(_recvPhotos.length&&!_tgTestMode){
+      const _token=settings.token||TG_DEFAULTS.token;
+      const _chatId=settings.chatId||TG_DEFAULTS.chatId;
+      const _topicId=settings.stockTopicId||TG_DEFAULTS.stockTopicId;
+      _recvPhotos.forEach((b64,i)=>{
+        try{
+          const byteStr=atob(b64.split(',')[1]);const mime=b64.split(',')[0].match(/:(.*?);/)[1];
+          const arr=new Uint8Array(byteStr.length);for(let j=0;j<byteStr.length;j++)arr[j]=byteStr.charCodeAt(j);
+          const blob=new Blob([arr],{type:mime});const fd=new FormData();
+          fd.append('chat_id',_chatId);if(_topicId)fd.append('message_thread_id',_topicId);
+          fd.append('caption','📦 '+activeDrawerItem.name+(i===0?' ใบเสร็จ':' รูปของ'));
+          fd.append('photo',blob,'photo.jpg');
+          fetch('https://api.telegram.org/bot'+_token+'/sendPhoto',{method:'POST',body:fd});
+        }catch(e){}
+      });
+    }
   }
 
   closeDrawer('drawer-receive');
