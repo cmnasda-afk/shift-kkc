@@ -1034,7 +1034,7 @@ function showTab(tab){
 
 function renderContent(tab){
   const el=document.getElementById('main-content');
-  if(tab==='dashboard')         el.innerHTML=renderDashboard();
+  if(tab==='dashboard')         {try{el.innerHTML=renderDashboard();}catch(e){el.innerHTML='<div style="padding:20px;color:red">Error: '+e.message+'</div>';console.error(e);}}
   else if(tab==='stock')        el.innerHTML=renderStock();
   else if(tab==='receive')      el.innerHTML=renderReceiveList();
   else if(tab==='bakery')       el.innerHTML=renderBakeryTab();
