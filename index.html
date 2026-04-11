@@ -1075,7 +1075,7 @@ function renderDashboard(){
   </div>`;
 
   // ─── Manager: Revenue Summary ───
-  if(currentRole==='manager'){
+  if(currentRole==='manager'){try{
     const _now=new Date();
     const _thisMonth=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
     const _weekStart=new Date(_now);_weekStart.setDate(_now.getDate()-_now.getDay());
@@ -1149,7 +1149,7 @@ function renderDashboard(){
         <span style="font-weight:700;font-size:12px">${fmtBaht(_monthRev-_monthCost-_bkMonthCost)} ฿</span>
       </div>
     </div>`;
-  }
+  }catch(e){console.error('Revenue error:',e);html+='<div style="padding:12px;color:var(--red);font-size:11px">ไม่สามารถโหลดรายรับ: '+e.message+'</div>';}}
 
   // session card
   html+=`<div class="check-session">
