@@ -3333,7 +3333,7 @@ function renderBakeryTab(){
   const today=todayStr();
   if(!bakeryItems||!bakeryItems.length) return`<div class="empty">ยังไม่มีรายการเบเกอรี่<br><span style="font-size:11px">Manager เพิ่มได้ที่ ตั้งค่า → เบเกอรี่ที่จะขาย</span></div>`;
   const isManager=currentRole==='manager';
-  const selDate=(isManager&&document.getElementById('bkt-date')?.value)||today;
+  const selDate=document.getElementById('bkt-date')?.value||today;
   let rounds=getBkRounds(selDate);
   if(!rounds.length){rounds=[{id:'r1',items:{}}];bakeryDayLog[selDate]=rounds;lsSave(BAKERY_DAY_LS,bakeryDayLog);}
   const agg=getBkAggregate(selDate);
@@ -3351,7 +3351,7 @@ function renderBakeryTab(){
   let html=`<div style="background:var(--green);color:#fff;padding:14px 16px;border-bottom:0.5px solid var(--border)">
     <div style="font-size:15px;font-weight:700;margin-bottom:2px">🥐 เบเกอรี่</div>
     <div style="font-size:11px;opacity:0.9">${rounds.length} รอบ · กรอกรับมา/เหลือ แล้วระบบจะคำนวณยอดขายอัตโนมัติ</div>
-    ${isManager?`<input type="date" id="bkt-date" value="${selDate}" max="${today}" style="width:100%;margin-top:8px;padding:6px 8px;border:none;border-radius:var(--r);font-family:var(--font);font-size:12px;color:var(--text)" onchange="renderContent('bakery')">`:''}
+    <input type="date" id="bkt-date" value="${selDate}" max="${today}" style="width:100%;margin-top:8px;padding:6px 8px;border:none;border-radius:var(--r);font-family:var(--font);font-size:12px;color:var(--text)" onchange="renderContent('bakery')">
   </div>`;
 
   // สรุปการ์ด
