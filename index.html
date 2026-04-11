@@ -3916,7 +3916,15 @@ async function syncNow() {
 
     // ดึง custom items
     const rc = await fetch(`${settings.scriptUrl}?action=getCustomItems`,{signal:syncCtrl.signal}).then(r => r.json());
-    if (rc.items) { customItems = rc.items; saveCustom(); }
+    if (rc.items&&rc.items.length) {
+      // merge: เพิ่มจาก Sheet ที่ยังไม่มีใน local (ไม่ลบของ local)
+      rc.items.forEach(si=>{
+        if(!customItems.find(li=>li.name===si.name&&li.cat===si.cat)){
+          customItems.push(si);
+        }
+      });
+      saveCustom();
+    }
 
     clearTimeout(syncTimer);
     toast('ซิงค์สำเร็จ '+updated+'/'+received+' รายการ ✓',3500);
