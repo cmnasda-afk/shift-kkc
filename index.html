@@ -3623,6 +3623,7 @@ function addCustomItem(cat){
   const unit=prompt('หน่วย (เช่น ขวด, ถุง, kg):')?.trim()||'ชิ้น';
   if(!customItems.find(i=>i.name===name&&i.cat===cat)){
     customItems.push({name,cat,unit});saveCustom();
+    if(settings.scriptUrl) pushToSheets('saveCustomItem',{item:{name,cat,unit}}).catch(()=>{});
   }
   toast(`เพิ่ม "${name}" แล้ว`);renderContent(currentTab);
 }
@@ -3866,6 +3867,11 @@ async function pushAllToSheet(){
   const recvs=entries.filter(e=>e.type==='receive');
   for(const e of recvs){
     const ok=await pushToSheets('saveReceive',{receive:e});
+    if(ok)done++;else failed++;
+  }
+  // push custom items
+  for(const item of customItems){
+    const ok=await pushToSheets('saveCustomItem',{item});
     if(ok)done++;else failed++;
   }
   if(failed>0){
