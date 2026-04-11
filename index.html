@@ -3042,7 +3042,7 @@ async function saveReceiveEntry(){
 
   // Telegram auto-notify
   if((settings.token||TG_DEFAULTS.token)&&(settings.chatId||TG_DEFAULTS.chatId)){
-    const msg=`📦 รับของเข้า SHIFT KKC\n${activeDrawerItem.name}\nจำนวน: ${qty} ${activeDrawerItem.unit}${supplier?'\nจาก: '+supplier:''}${priceTotal?'\nราคา: '+priceTotal+' ฿'+(pricePerUnit?' ('+pricePerUnit+' ฿/'+activeDrawerItem.unit+')':''):''}${expDate?'\nหมดอายุ: '+fmt(expDate):''}\n#receive #shift_kkc`;
+    const msg=`📦 รับของเข้า SHIFT KKC\n${activeDrawerItem.name}\nจำนวน: ${qty} ${activeDrawerItem.unit}\nวันรับเข้า: ${fmt(recvDate)}${supplier?'\nจาก: '+supplier:''}${priceTotal?'\nราคา: '+priceTotal+' ฿'+(pricePerUnit?' ('+pricePerUnit+' ฿/'+activeDrawerItem.unit+')':''):''}${expDate?'\nหมดอายุ: '+fmt(expDate):''}\n#receive #shift_kkc`;
     sendTgStock(msg);
     // ส่งรูปที่ถ่ายไว้ไป stock topic
     const _recvPhotos=Object.values(recvPhotos).filter(p=>p);
