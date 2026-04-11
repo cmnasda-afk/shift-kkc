@@ -2624,8 +2624,8 @@ function startStockCheck(){
       const isLow=minVal>0&&prevNum<=minVal&&prevNum>0;
       const isOut=e&&prevNum<=0&&prevQty!=='';
       const color=isOut?'var(--red)':isLow?'var(--amber)':'var(--text)';
-      const lastDate=e?fmt(e.date):'';
-      const lastTime=e&&e.ts?new Date(e.ts).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'';
+      const lastDate=e&&e.date?fmt(e.date):'';
+      const lastTime=(()=>{if(!e||!e.ts)return '';const d=new Date(Number(e.ts)||e.ts);return isNaN(d.getTime())?'':d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});})();
       html+='<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface)">'
         +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:600;color:'+color+'">'+esc(item.name)+'</div>'
