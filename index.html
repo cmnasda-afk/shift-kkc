@@ -1074,6 +1074,83 @@ function renderDashboard(){
     <div class="kpi-card"><div class="kpi-num ${expiring.length+expired.length>0?'kpi-err':'kpi-ok'}">${expiring.length+expired.length}</div><div class="kpi-label">ใกล้หมดอายุ</div></div>
   </div>`;
 
+  // ─── Manager: Revenue Summary ───
+  if(currentRole==='manager'){
+    const _now=new Date();
+    const _thisMonth=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
+    const _weekStart=new Date(_now);_weekStart.setDate(_now.getDate()-_now.getDay());
+    const _weekStr=_weekStart.toISOString().split('T')[0];
+    let _todayRev=0,_weekRev=0,_monthRev=0,_todayCash=0,_todayTransfer=0;
+    Object.entries(revenueLog).forEach(([date,r])=>{
+      const cash=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0;
+      const transfer=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0;
+      const lm=parseFloat(r.payLineMan)||0;const cc=parseFloat(r.payCreditCard)||0;const oth=parseFloat(r.payOther)||0;
+      const dt=cash+transfer+lm+cc+oth;
+      if(date===today){_todayRev=dt;_todayCash=cash+lm+cc+oth;_todayTransfer=transfer;}
+      if(date>=_weekStr)_weekRev+=dt;
+      if(date.startsWith(_thisMonth))_monthRev+=dt;
+    });
+    // bakery
+    let _bkTodayRev=0,_bkTodayCost=0,_bkMonthRev=0,_bkMonthCost=0;
+    Object.entries(bakeryDayLog||{}).forEach(([date,rounds])=>{
+      let dr=0,dc=0;
+      (rounds||[]).forEach(round=>{
+        Object.entries(round.items||{}).forEach(([name,d])=>{
+          const b=(bakeryItems||[]).find(x=>x.name===name);if(!b)return;
+          const sold=Math.max(0,(d.received||0)-(d.remaining||0));
+          dr+=sold*(parseFloat(b.sellingPrice)||0);
+          dc+=(d.received||0)*(parseFloat(b.costPerPc)||0);
+        });
+      });
+      if(date===today){_bkTodayRev=dr;_bkTodayCost=dc;}
+      if(date.startsWith(_thisMonth)){_bkMonthRev+=dr;_bkMonthCost+=dc;}
+    });
+    // cost
+    let _monthCost=0;
+    entries.filter(e=>e.type==='receive'&&e.date&&e.date.startsWith(_thisMonth)&&e.priceTotal).forEach(e=>{
+      _monthCost+=(parseFloat(e.priceTotal)||0);
+    });
+    const _todayCost=entries.filter(e=>e.type==='receive'&&e.date===today).reduce((s,e)=>s+(parseFloat(e.priceTotal)||0),0);
+
+    html+=`<div style="background:var(--green);padding:14px 16px;color:#fff;border-radius:var(--rl);margin:8px 12px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">💰 รายรับ-รายจ่าย</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+        <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:9px;opacity:0.8">วันนี้</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${_todayRev?fmtBaht(_todayRev):'—'}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:9px;opacity:0.8">สัปดาห์</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${_weekRev?fmtBaht(_weekRev):'—'}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:9px;opacity:0.8">เดือนนี้</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${_monthRev?fmtBaht(_monthRev):'—'}</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;color:rgba(255,255,255,0.95)">
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.2)">
+          <td style="padding:4px 0">☕ เครื่องดื่ม</td>
+          <td style="text-align:right;font-family:var(--mono)">${fmtBaht(Math.max(0,_todayRev-_bkTodayRev))}</td>
+          <td style="text-align:right;font-family:var(--mono);opacity:0.7">ทุน ${fmtBaht(_todayCost)}</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.2)">
+          <td style="padding:4px 0">🥐 เบเกอรี่</td>
+          <td style="text-align:right;font-family:var(--mono)">${fmtBaht(_bkTodayRev)}</td>
+          <td style="text-align:right;font-family:var(--mono);opacity:0.7">ทุน ${fmtBaht(_bkTodayCost)}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;font-weight:700">กำไรวันนี้</td>
+          <td colspan="2" style="text-align:right;font-family:var(--mono);font-weight:700;font-size:14px">${fmtBaht(_todayRev-_todayCost-_bkTodayCost)} ฿</td>
+        </tr>
+      </table>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.2);display:flex;justify-content:space-between;font-size:10px;opacity:0.8">
+        <span>กำไรเดือนนี้</span>
+        <span style="font-weight:700;font-size:12px">${fmtBaht(_monthRev-_monthCost-_bkMonthCost)} ฿</span>
+      </div>
+    </div>`;
+  }
+
   // session card
   html+=`<div class="check-session">
     <div class="check-session-hd">
