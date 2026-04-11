@@ -2607,138 +2607,48 @@ function clearAllData(){
 // ══════════════════════════════════════════════════════════
 function startStockCheck(){
   const lbn=latestByName();
-  const today=todayStr();
-  const allItems=getAllCats().reduce((a,c)=>[...a,...c.items.map(it=>({...it,cat:c.cat}))],[]);
-  // แบ่ง 3 กลุ่ม: ต้องดูแล / มียอดเดิม / ยังไม่เคยเช็ค
-  const needsAttention=[], normal=[], neverChecked=[];
-  allItems.forEach(item=>{
-    const e=lbn[item.name];
-    const ms=minStock[item.name]||{};
-    const minVal=parseFloat(ms.min)||0;
-    if(!e||e.qty===''||e.qty===undefined){neverChecked.push(item);return;}
-    const qty=parseFloat(e.qty)||0;
-    if(e.status==='out'||e.status==='low'||(minVal>0&&qty<=minVal)||qty<=0){
-      needsAttention.push(item);
-    } else {
-      normal.push(item);
-    }
-  });
-
-  // track confirmed items
-  window._stockConfirmed={};
-  window._stockCheckDate=today;
-
   let html='<div style="padding:12px 16px;background:var(--green);color:#fff;font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10">'
     +'<span>📋 เช็คสต็อก</span>'
     +'<button onclick="saveAllStockCheck()" style="background:#fff;color:var(--green);border:none;border-radius:var(--r);padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึก</button>'
-    +'</div>';
+    +'</div>'
+    +'<div style="padding:8px 16px;background:#fffbe8;border-bottom:1px solid #f0d000;font-size:12px;color:#7a5800;text-align:center">ดูยอดเดิม → ถ้าเท่าเดิมข้ามไป ถ้าต่างก็แก้ตัวเลข → กดบันทึก</div>';
 
-  // สรุปด้านบน
-  html+='<div style="padding:10px 16px;background:#fffbe8;border-bottom:1px solid #f0d000;display:flex;gap:12px;justify-content:center">'
-    +'<div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--red)">'+needsAttention.length+'</div><div style="font-size:9px;color:var(--text2)">ต้องดูแล</div></div>'
-    +'<div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--green)">'+normal.length+'</div><div style="font-size:9px;color:var(--text2)">ปกติ</div></div>'
-    +'<div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text3)">'+neverChecked.length+'</div><div style="font-size:9px;color:var(--text2)">ยังไม่เคย</div></div>'
-    +'</div>';
-
-  // ปุ่มยืนยันทั้งหมดที่ปกติ
-  if(normal.length){
-    html+='<div style="padding:10px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">'
-      +'<button onclick="confirmAllNormal()" id="btn-confirm-all" style="width:100%;padding:12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:var(--r);color:var(--green);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">✅ ยืนยันของปกติทั้งหมด ('+normal.length+' รายการ) — เหมือนเดิม</button>'
-      +'</div>';
-  }
-
-  // ─── กลุ่ม 1: ต้องดูแล ───
-  if(needsAttention.length){
-    html+='<div style="background:#fde8e8;padding:8px 16px;font-size:12px;font-weight:700;color:var(--red);border-bottom:1.5px solid var(--red)">🔴 ต้องดูแล ('+needsAttention.length+' รายการ)</div>';
-    needsAttention.forEach(item=>{html+=renderCheckItem(item,lbn,today);});
-  }
-
-  // ─── กลุ่ม 2: ยังไม่เคยเช็ค ───
-  if(neverChecked.length){
-    html+='<div style="background:#f5f5f5;padding:8px 16px;font-size:12px;font-weight:700;color:var(--text2);border-bottom:1.5px solid var(--border)">⬜ ยังไม่เคยเช็ค ('+neverChecked.length+')</div>';
-    neverChecked.forEach(item=>{html+=renderCheckItem(item,lbn,today);});
-  }
-
-  // ─── กลุ่ม 3: ปกติ (แยกตามหมวด) ───
-  if(normal.length){
-    html+='<div style="background:#e8f5e9;padding:8px 16px;font-size:12px;font-weight:700;color:var(--green);border-bottom:1.5px solid var(--green-mid)">🟢 ปกติ ('+normal.length+' รายการ) — แตะ ✅ เพื่อยืนยัน หรือแก้ยอด</div>';
-    let lastCat='';
-    normal.forEach(item=>{
-      if(item.cat!==lastCat){
-        lastCat=item.cat;
-        html+='<div style="background:var(--bg2);padding:5px 16px;font-size:10px;font-weight:700;color:var(--text3);border-bottom:0.5px solid var(--border)">'+esc(item.cat)+'</div>';
-      }
-      html+=renderCheckItem(item,lbn,today);
+  getAllCats().forEach(cat=>{
+    html+='<div style="background:var(--bg2);padding:6px 16px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:0.5px solid var(--border)">'+esc(cat.cat)+'</div>';
+    cat.items.forEach(item=>{
+      const e=lbn[item.name];
+      const prevQty=e&&e.qty!==''&&e.qty!==undefined?e.qty:'';
+      const ms=minStock[item.name]||{};
+      const minVal=parseFloat(ms.min)||0;
+      const prevNum=parseFloat(prevQty)||0;
+      const isLow=minVal>0&&prevNum<=minVal&&prevNum>0;
+      const isOut=e&&prevNum<=0&&prevQty!=='';
+      const color=isOut?'var(--red)':isLow?'var(--amber)':'var(--text)';
+      html+='<div style="padding:8px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface)">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:600;color:'+color+'">'+esc(item.name)+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+esc(item.unit)+'</div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0;margin-right:4px">'
+        +'<div style="font-size:10px;color:var(--text3)">เดิม</div>'
+        +'<div style="font-size:14px;font-weight:700;color:'+color+';font-family:var(--mono)">'+(prevQty||'—')+'</div>'
+        +'</div>'
+        +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="'+(prevQty||'')+'" placeholder="0"'
+        +' style="width:70px;background:#fff;border:1.5px solid var(--border2);border-radius:var(--r);padding:8px;font-size:18px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:center;outline:none">'
+        +'<span style="font-size:10px;color:var(--text2);min-width:24px">'+esc(item.unit)+'</span>'
+        +'</div>';
     });
-  }
+  });
 
-  html+='<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">'
-    +'<button onclick="saveAllStockCheck()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด</button>'
+  html+='<div style="padding:12px 16px">'
+    +'<button onclick="saveAllStockCheck()" style="width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:16px;font-weight:700;cursor:pointer;font-family:var(--font)">💾 บันทึกทั้งหมด</button>'
     +'</div><div style="height:20px"></div>';
   document.getElementById('main-content').innerHTML=html;
 }
 
-function renderCheckItem(item,lbn,today){
-  const e=lbn[item.name];
-  const prevQty=e&&e.qty!==''&&e.qty!==undefined?e.qty:'';
-  const prevNum=parseFloat(prevQty)||0;
-  const ms=minStock[item.name]||{};
-  const minVal=parseFloat(ms.min)||0;
-  const isLow=e&&(e.status==='low'||(minVal>0&&prevNum<=minVal&&prevNum>0));
-  const isOut=e&&(e.status==='out'||prevNum<=0);
-  const borderColor=isOut?'var(--red)':isLow?'var(--amber)':'var(--border)';
-  const bgColor=isOut?'#fff0f0':isLow?'#fff8f0':'var(--surface)';
-
-  return '<div id="sc-row-'+escAttr(item.name).replace(/[^a-zA-Z0-9]/g,'_')+'" style="padding:8px 12px;border-bottom:0.5px solid var(--border);border-left:3px solid '+borderColor+';display:flex;align-items:center;gap:8px;background:'+bgColor+'">'
-    +'<button onclick="confirmSame(\''+escAttr(item.name)+'\',\''+escAttr(item.unit)+'\','+prevNum+')" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--r);padding:6px 8px;font-size:14px;cursor:pointer;flex-shrink:0" title="เหมือนเดิม">✅</button>'
-    +'<div style="flex:1;min-width:0">'
-    +'<div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(item.name)+'</div>'
-    +'<div style="font-size:10px;color:var(--text3)">เดิม: <b>'+(prevQty||'—')+' '+esc(item.unit)+'</b>'+(minVal?' · min '+minVal:'')+'</div>'
-    +'</div>'
-    +'<input type="text" inputmode="decimal" data-stock-name="'+escAttr(item.name)+'" data-stock-unit="'+escAttr(item.unit)+'" value="'+(prevQty||'')+'" placeholder="0"'
-    +' style="width:65px;background:#fff;border:1.5px solid '+borderColor+';border-radius:var(--r);padding:6px 8px;font-size:16px;font-weight:700;font-family:var(--mono);color:var(--text);text-align:right;outline:none">'
-    +'<span style="font-size:10px;color:var(--text2);min-width:20px">'+esc(item.unit)+'</span>'
-    +'</div>';
-}
-
-function confirmSame(name,unit,qty){
-  const rowId='sc-row-'+name.replace(/[^a-zA-Z0-9]/g,'_');
-  const row=document.getElementById(rowId);
-  if(row){
-    row.style.background='#f0faf0';
-    row.style.borderLeftColor='var(--green)';
-    row.style.opacity='0.6';
-    const btn=row.querySelector('button');
-    if(btn){btn.textContent='✓';btn.style.background='var(--green)';btn.style.color='#fff';btn.style.border='none';}
-  }
-  window._stockConfirmed=window._stockConfirmed||{};
-  window._stockConfirmed[name]={unit,qty};
-}
-
-function confirmAllNormal(){
-  const lbn=latestByName();
-  const allItems=getAllCats().reduce((a,c)=>[...a,...c.items],[]);
-  let count=0;
-  allItems.forEach(item=>{
-    const e=lbn[item.name];
-    if(!e||e.qty===''||e.qty===undefined)return;
-    const qty=parseFloat(e.qty)||0;
-    const ms=minStock[item.name]||{};
-    const minVal=parseFloat(ms.min)||0;
-    if(e.status==='out'||e.status==='low'||(minVal>0&&qty<=minVal)||qty<=0)return;
-    confirmSame(item.name,item.unit,qty);
-    count++;
-  });
-  const btn=document.getElementById('btn-confirm-all');
-  if(btn){btn.textContent='✅ ยืนยันแล้ว '+count+' รายการ';btn.style.background='var(--green)';btn.style.color='#fff';btn.style.border='none';}
-  toast('ยืนยัน '+count+' รายการเหมือนเดิม ✓');
-}
-
 function saveAllStockCheck(){
-  const confirmed=window._stockConfirmed||{};
   const inputs=document.querySelectorAll('[data-stock-name]');
-  const items={};
-  // collect from inputs (แก้ไขยอด)
+  let count=0;
   inputs.forEach(input=>{
     const name=input.dataset.stockName;
     const unit=input.dataset.stockUnit;
@@ -2746,14 +2656,6 @@ function saveAllStockCheck(){
     if(val==='')return;
     const qty=parseFloat(val);
     if(isNaN(qty))return;
-    items[name]={unit,qty};
-  });
-  // merge confirmed items (ที่กด ✅)
-  Object.entries(confirmed).forEach(([name,v])=>{
-    if(!items[name]) items[name]=v;
-  });
-  let count=0;
-  Object.entries(items).forEach(([name,{unit,qty}])=>{
     const ms=minStock[name]||{};
     const minVal=parseFloat(ms.min)||0;
     let status='ok';
@@ -2761,8 +2663,7 @@ function saveAllStockCheck(){
       if(qty<=0) status='out';
       else if(qty<=minVal) status='low';
     }
-    const entry={name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:confirmed[name]?'confirmed-same':''};
-    entries.push(entry);
+    entries.push({name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:''});
     count++;
   });
   if(count){
@@ -2770,7 +2671,7 @@ function saveAllStockCheck(){
     toast('บันทึก '+count+' รายการสำเร็จ ✓');
     showTab('stock');
   } else {
-    toast('กรุณายืนยันหรือกรอกอย่างน้อย 1 รายการ');
+    toast('กรุณากรอกอย่างน้อย 1 รายการ');
   }
 }
 
