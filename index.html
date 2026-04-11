@@ -3129,14 +3129,25 @@ async function saveLossEntry(){
 
 function promptAddItem(){
   const cats=getAllCats().map(c=>c.cat);
-  const cat=prompt('ใส่หมวดหมู่:\n'+cats.map((c,i)=>`${i+1}. ${c}`).join('\n')+'\n\nพิมพ์ชื่อหมวด:')?.trim();
-  if(!cat)return;
-  const name=prompt(`ชื่อรายการใหม่ในหมวด "${cat}":`)?.trim();
+  const popup=document.createElement('div');
+  popup.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  popup.innerHTML='<div style="background:#fff;border-radius:12px;max-width:400px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3)">'
+    +'<div style="padding:12px 16px;background:var(--green);border-radius:12px 12px 0 0;color:#fff;font-weight:700;font-size:14px">เลือกหมวดหมู่</div>'
+    +'<div style="padding:8px">'+cats.map(c=>'<button onclick="promptAddItem2(\''+c.replace(/'/g,"\\'")+'\')" style="display:block;width:100%;padding:12px 16px;margin-bottom:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:var(--font);text-align:left">'+c+'</button>').join('')+'</div>'
+    +'<div style="padding:8px 16px 12px;text-align:center"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:10px 24px;border:1px solid var(--border);border-radius:var(--r);background:#fff;font-size:13px;cursor:pointer;font-family:var(--font)">ยกเลิก</button></div>'
+    +'</div>';
+  document.body.appendChild(popup);
+  popup.addEventListener('click',e=>{if(e.target===popup)popup.remove();});
+}
+function promptAddItem2(cat){
+  document.querySelector('div[style*="position:fixed"][style*="z-index:9999"]')?.remove();
+  const name=prompt('ชื่อรายการใหม่ในหมวด "'+cat+'":')?.trim();
   if(!name)return;
   const unit=prompt('หน่วย (เช่น ขวด, ถุง, kg):')?.trim()||'ชิ้น';
   if(!customItems.find(i=>i.name===name&&i.cat===cat)){
     customItems.push({name,cat,unit});saveCustom();
-    toast(`เพิ่ม "${name}" แล้ว`);renderContent('settings');
+    if(settings.scriptUrl) pushToSheets('saveCustomItem',{item:{name,cat,unit}}).catch(()=>{});
+    toast('เพิ่ม "'+name+'" ในหมวด '+cat+' แล้ว');renderContent(currentTab);
   } else {
     toast('มีรายการนี้อยู่แล้ว');
   }
