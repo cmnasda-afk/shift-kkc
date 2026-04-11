@@ -4873,7 +4873,6 @@ function renderSummaryScreen(date){
 
   ${sec('☀️ รอบเช้า — เงินในเก๊ะ')}
   ${row('openCash','เงินสดเริ่มต้น',r.openCash,'var(--text)','฿','ที่กะเช้านับ')}
-  ${buildCashCounter(r,date,'am','☀️ นับเงินกะเช้า')}
   <div style="padding:12px 16px;background:#e8f0fe;border-bottom:0.5px solid var(--border)">
     ${openCash?`<div style="font-size:18px;font-weight:700;color:#2a7ab0;margin-bottom:2px">ยอดเงินจริง ${fmtBaht(openCash)} ฿</div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:8px">เงินสดในเก๊ะตอนเปิดร้าน</div>`:''}
@@ -4943,7 +4942,6 @@ function renderSummaryScreen(date){
   ${row('refund','คืนเงิน',r.refund,'var(--text)')}
   ${row('cashInOut','เงินเข้า/เงินออก',r.cashInOut,'var(--text)')}
   ${row('actualCash','จำนวนจริงในลิ้นชัก',r.actualCash,'var(--text)','฿','นับเงินสดจริงตอนปิดร้าน')}
-  ${buildCashCounter(r,date,'pm','🌙 นับเงินกะเย็น')}
   ${row('totalBills','บิลทั้งหมด',r.totalBills,'var(--text)','บิล')}
 
   ${sec('💵 ยอดเงินจริงตอนปิดร้าน')}
