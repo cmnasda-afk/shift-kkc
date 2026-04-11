@@ -4160,7 +4160,91 @@ function renderMgrSummary(){
   }
   const maxCost=Math.max(...last7.map(d=>d.cost),1);
 
+  // ─── รายรับสะสม ───
+  const now=new Date();
+  const thisMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const thisWeekStart=new Date(now);thisWeekStart.setDate(now.getDate()-now.getDay());
+  const weekStartStr=thisWeekStart.toISOString().split('T')[0];
+  let todayRev=0,weekRev=0,monthRev=0,monthCost=0;
+  let todayCash=0,todayTransfer=0;
+  const revDays={};
+  Object.entries(revenueLog).forEach(([date,r])=>{
+    const cash=parseFloat(r.payCashAmt)||parseFloat(r.cashIn)||0;
+    const transfer=parseFloat(r.payTransfer)||parseFloat(r.qrOnline)||0;
+    const lineman=parseFloat(r.payLineMan)||0;
+    const credit=parseFloat(r.payCreditCard)||0;
+    const other=parseFloat(r.payOther)||0;
+    const dayTotal=cash+transfer+lineman+credit+other;
+    revDays[date]=dayTotal;
+    if(date===today){todayRev=dayTotal;todayCash=cash+lineman+credit+other;todayTransfer=transfer;}
+    if(date>=weekStartStr) weekRev+=dayTotal;
+    if(date.startsWith(thisMonth)) monthRev+=dayTotal;
+  });
+  // month cost
+  entries.filter(e=>e.type==='receive'&&e.date&&e.date.startsWith(thisMonth)&&e.priceTotal).forEach(e=>{
+    monthCost+=(parseFloat(e.priceTotal)||0);
+  });
+
   let html=``;
+
+  // ─── Revenue Summary Cards ───
+  html+=`<div style="background:var(--green);padding:16px;color:#fff">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">💰 สรุปรายรับ</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:10px;text-align:center">
+        <div style="font-size:10px;opacity:0.8">วันนี้</div>
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono)">${todayRev?fmtBaht(todayRev):'—'}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:10px;text-align:center">
+        <div style="font-size:10px;opacity:0.8">สัปดาห์นี้</div>
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono)">${weekRev?fmtBaht(weekRev):'—'}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.15);border-radius:var(--r);padding:10px;text-align:center">
+        <div style="font-size:10px;opacity:0.8">เดือนนี้</div>
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono)">${monthRev?fmtBaht(monthRev):'—'}</div>
+      </div>
+    </div>
+    ${todayRev?`<div style="display:flex;gap:12px;font-size:12px;opacity:0.9">
+      <span>เงินสด ${fmtBaht(todayCash)} ฿</span>
+      <span>โอน ${fmtBaht(todayTransfer)} ฿</span>
+    </div>`:''}
+  </div>`;
+
+  // ─── รายจ่าย (ต้นทุน) ───
+  html+=`<div style="background:#fff3e0;padding:12px 16px;border-bottom:1px solid var(--amber);display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--amber)">📉 ต้นทุนเดือนนี้</div>
+      <div style="font-size:10px;color:var(--text3)">รับของเข้าทั้งหมด</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:20px;font-weight:700;color:var(--amber);font-family:var(--mono)">${monthCost?fmtBaht(monthCost):'0'} ฿</div>
+      ${monthRev&&monthCost?`<div style="font-size:10px;color:var(--green);font-weight:600">กำไรขั้นต้น ${fmtBaht(monthRev-monthCost)} ฿</div>`:''}
+    </div>
+  </div>`;
+
+  // ─── กราฟรายรับ 7 วัน ───
+  const rev7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const ds=d.toISOString().split('T')[0];
+    rev7.push({date:ds,rev:revDays[ds]||0,cost:costByDay[ds]||0});
+  }
+  const maxRev=Math.max(...rev7.map(d=>d.rev),1);
+  html+=`<div style="padding:12px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">📊 รายรับ 7 วันล่าสุด</div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+      ${rev7.map(d=>{
+        const pct=d.rev>0?Math.round(d.rev/maxRev*100):2;
+        const isToday=d.date===today;
+        const day=new Date(d.date+'T00:00:00').toLocaleDateString('th-TH',{weekday:'short'});
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="font-size:8px;color:var(--text3)">${d.rev>0?(d.rev/1000).toFixed(1)+'k':''}</div>
+          <div style="width:100%;border-radius:4px 4px 0 0;background:${isToday?'var(--green)':'var(--green-mid)'};height:${pct}%"></div>
+          <div style="font-size:8px;color:${isToday?'var(--green)':'var(--text3)'};font-weight:${isToday?700:400}">${day}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 
   // Export bar
   html+=`<div class="export-bar">
