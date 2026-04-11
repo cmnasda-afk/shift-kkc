@@ -4294,16 +4294,75 @@ function renderMgrSummary(){
     </div>`;
   }
 
-  // ─── รายจ่าย (ต้นทุน) ───
-  html+=`<div style="background:#fff3e0;padding:12px 16px;border-bottom:1px solid var(--amber);display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:12px;font-weight:700;color:var(--amber)">📉 ต้นทุนเดือนนี้</div>
-      <div style="font-size:10px;color:var(--text3)">รับของเข้าทั้งหมด</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:20px;font-weight:700;color:var(--amber);font-family:var(--mono)">${monthCost?fmtBaht(monthCost):'0'} ฿</div>
-      ${monthRev&&monthCost?`<div style="font-size:10px;color:var(--green);font-weight:600">กำไรขั้นต้น ${fmtBaht(monthRev-monthCost)} ฿</div>`:''}
-    </div>
+  // ─── รายละเอียดแยกหมวด (วันนี้) ───
+  const drinkRev=todayRev; // ยอดจาก POS = รวมทุกอย่าง
+  const drinkCost=totalCost; // ต้นทุนวัตถุดิบวันนี้
+  const drinkOnly=Math.max(0,drinkRev-bkTodayRev); // เครื่องดื่ม = POS - เบเกอรี่
+  // เดือนนี้
+  const drinkMonthRev=Math.max(0,monthRev-bkMonthRev);
+  const totalMonthCost=monthCost+bkMonthCost;
+  const totalMonthRev=monthRev+bkMonthRev; // ถ้าเบเกอรี่ไม่รวมใน POS
+  const totalMonthProfit=monthRev-monthCost-bkMonthCost;
+
+  html+=`<div style="padding:12px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📊 รายละเอียดแยกหมวด (วันนี้)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--bg2)">
+        <th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text2)">หมวด</th>
+        <th style="padding:6px 4px;text-align:right;font-size:11px;color:var(--green)">รายได้</th>
+        <th style="padding:6px 4px;text-align:right;font-size:11px;color:var(--red)">ต้นทุน</th>
+        <th style="padding:6px 8px;text-align:right;font-size:11px;color:#2a7ab0">กำไร</th>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border)">
+        <td style="padding:8px">☕ เครื่องดื่ม</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${fmtBaht(drinkOnly)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmtBaht(drinkCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:${drinkOnly-drinkCost>0?'var(--green)':'var(--red)'}">${fmtBaht(drinkOnly-drinkCost)}</td>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border)">
+        <td style="padding:8px">🥐 เบเกอรี่</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${fmtBaht(bkTodayRev)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmtBaht(bkTodayCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:${bkProfit>0?'var(--green)':'var(--red)'}">${fmtBaht(bkProfit)}</td>
+      </tr>
+      <tr style="background:var(--green-light);font-weight:700">
+        <td style="padding:8px">รวมวันนี้</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);color:var(--green)">${fmtBaht(todayRev)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);color:var(--red)">${fmtBaht(drinkCost+bkTodayCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);color:var(--green)">${fmtBaht(todayRev-drinkCost-bkTodayCost)}</td>
+      </tr>
+    </table>
+  </div>`;
+
+  // ─── รายละเอียดแยกหมวด (เดือนนี้) ───
+  html+=`<div style="padding:12px 16px;background:var(--surface);border-bottom:0.5px solid var(--border)">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📅 รายละเอียดแยกหมวด (เดือนนี้)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--bg2)">
+        <th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text2)">หมวด</th>
+        <th style="padding:6px 4px;text-align:right;font-size:11px;color:var(--green)">รายได้</th>
+        <th style="padding:6px 4px;text-align:right;font-size:11px;color:var(--red)">ต้นทุน</th>
+        <th style="padding:6px 8px;text-align:right;font-size:11px;color:#2a7ab0">กำไร</th>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border)">
+        <td style="padding:8px">☕ เครื่องดื่ม</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${fmtBaht(drinkMonthRev)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmtBaht(monthCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:${drinkMonthRev-monthCost>0?'var(--green)':'var(--red)'}">${fmtBaht(drinkMonthRev-monthCost)}</td>
+      </tr>
+      <tr style="border-bottom:0.5px solid var(--border)">
+        <td style="padding:8px">🥐 เบเกอรี่</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${fmtBaht(bkMonthRev)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">${fmtBaht(bkMonthCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:${bkMonthRev-bkMonthCost>0?'var(--green)':'var(--red)'}">${fmtBaht(bkMonthRev-bkMonthCost)}</td>
+      </tr>
+      <tr style="background:var(--green-light);font-weight:700">
+        <td style="padding:8px">รวมเดือนนี้</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);color:var(--green)">${fmtBaht(monthRev)}</td>
+        <td style="padding:8px 4px;text-align:right;font-family:var(--mono);color:var(--red)">${fmtBaht(totalMonthCost)}</td>
+        <td style="padding:8px;text-align:right;font-family:var(--mono);color:var(--green)">${fmtBaht(totalMonthProfit)}</td>
+      </tr>
+    </table>
   </div>`;
 
   // ─── กราฟรายรับ 7 วัน ───
