@@ -3295,9 +3295,29 @@ function renderBakeryTab(){
     const rRecv=Object.values(rItems).reduce((s,d)=>s+(d.received||0),0);
     const rRemain=Object.values(rItems).reduce((s,d)=>s+(d.remaining||0),0);
     const rSold=Math.max(0,rRecv-rRemain);
-    html+=`<div style="background:#fff3e0;border-bottom:1px solid var(--amber);padding:8px 16px;display:flex;align-items:center;gap:8px">
-      <div style="flex:1;font-size:13px;font-weight:700;color:var(--amber)">📋 รอบ ${ri+1}${rRecv?` · รับ ${rRecv} · ขาย ${rSold}`:''}</div>
-      ${rounds.length>1?`<button onclick="deleteBakeryRound(${ri})" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font)">ลบรอบ</button>`:''}
+    let rCost=0,rRevenue=0;
+    bakeryItems.forEach(b=>{
+      const d=rItems[b.name]||{received:0,remaining:0};
+      const sold=Math.max(0,(d.received||0)-(d.remaining||0));
+      rCost+=(d.received||0)*(parseFloat(b.costPerPc)||0);
+      rRevenue+=sold*(parseFloat(b.sellingPrice)||0);
+    });
+    const rProfit=rRevenue-rCost;
+    html+=`<div style="background:#fff3e0;border-bottom:1px solid var(--amber);padding:10px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${rRecv?'8px':'0'}">
+        <div style="flex:1;font-size:14px;font-weight:700;color:var(--amber)">📋 รอบ ${ri+1}</div>
+        ${rounds.length>1?`<button onclick="deleteBakeryRound(${ri})" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r);padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font)">ลบ</button>`:''}
+      </div>
+      ${rRecv?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;text-align:center">
+        <div><div style="font-size:9px;color:var(--text2)">รับ</div><div style="font-size:14px;font-weight:700;color:var(--green)">${rRecv}</div></div>
+        <div><div style="font-size:9px;color:var(--text2)">ขาย</div><div style="font-size:14px;font-weight:700;color:#2a7ab0">${rSold}</div></div>
+        <div><div style="font-size:9px;color:var(--text2)">ต้นทุน</div><div style="font-size:12px;font-weight:700;color:var(--red)">${rCost?fmtBaht(rCost):0}</div></div>
+        <div><div style="font-size:9px;color:var(--text2)">รายได้</div><div style="font-size:12px;font-weight:700;color:var(--green)">${rRevenue?fmtBaht(rRevenue):0}</div></div>
+      </div>
+      ${rProfit?`<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--amber);display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:var(--text2)">กำไรรอบนี้</span>
+        <span style="font-weight:700;color:${rProfit>0?'var(--green)':'var(--red)'};font-family:var(--mono)">${rProfit>0?'+':''}${fmtBaht(rProfit)} ฿</span>
+      </div>`:''}`:''}
     </div>`;
     bakeryItems.forEach((b,idx)=>{
       const d=rItems[b.name]||{received:0,remaining:0};
