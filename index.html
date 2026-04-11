@@ -1094,7 +1094,7 @@ function renderDashboard(){
     let _bkTodayRev=0,_bkTodayCost=0,_bkMonthRev=0,_bkMonthCost=0;
     Object.entries(bakeryDayLog||{}).forEach(([date,rounds])=>{
       let dr=0,dc=0;
-      (rounds||[]).forEach(round=>{
+      (Array.isArray(rounds)?rounds:[]).forEach(round=>{
         Object.entries(round.items||{}).forEach(([name,d])=>{
           const b=(bakeryItems||[]).find(x=>x.name===name);if(!b)return;
           const sold=Math.max(0,(d.received||0)-(d.remaining||0));
