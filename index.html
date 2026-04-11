@@ -5573,13 +5573,17 @@ function handleDepositPhotoMgr(input,date){
 }
 function handleCashBillPhoto(input,date){
   const file=input.files?.[0];if(!file)return;input.value='';
-  _processPhoto(file,c=>{
-    const b64=c.toDataURL('image/jpeg',0.7);
-    if(!revenueLog[date])revenueLog[date]={};
-    if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
-    revenueLog[date].cashBillPhotos.push(b64);
-    saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปแล้ว ✓');
-  });
+  try{
+    _processPhoto(file,c=>{
+      try{
+        const b64=c.toDataURL('image/jpeg',0.5);
+        if(!revenueLog[date])revenueLog[date]={};
+        if(!revenueLog[date].cashBillPhotos)revenueLog[date].cashBillPhotos=[];
+        revenueLog[date].cashBillPhotos.push(b64);
+        saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปแล้ว ✓');
+      }catch(e){alert('บันทึกรูปไม่สำเร็จ: '+e.message);}
+    });
+  }catch(e){alert('ถ่ายรูปไม่สำเร็จ: '+e.message);}
 }
 function deleteCashBillPhoto(date,idx){
   if(!revenueLog[date])return;
@@ -5662,13 +5666,17 @@ function calcCashTotal(date,prefix){
 
 function handleMorningCashPhoto(input,date){
   const file=input.files?.[0];if(!file)return;input.value='';
+  try{
   _processPhoto(file,function(c){
-    const b64=c.toDataURL('image/jpeg',0.7);
+    try{
+    const b64=c.toDataURL('image/jpeg',0.5);
     if(!revenueLog[date])revenueLog[date]={};
     if(!revenueLog[date].morningCashPhotos)revenueLog[date].morningCashPhotos=[];
     revenueLog[date].morningCashPhotos.push(b64);
     saveRevenueLog();renderSummaryScreen(date);toast('บันทึกรูปแล้ว ✓');
+    }catch(e){alert('บันทึกรูปไม่สำเร็จ: '+e.message);}
   });
+  }catch(e){alert('ถ่ายรูปไม่สำเร็จ: '+e.message);}
 }
 function deleteMorningCashPhoto(date,idx){
   if(!revenueLog[date])return;
