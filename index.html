@@ -88,10 +88,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* sidebar */
 .sidebar{width:108px;flex-shrink:0;background:var(--surface);border-right:0.5px solid var(--border);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .sidebar::-webkit-scrollbar{display:none}
-.sidebar-section{padding:6px 0 2px;border-bottom:0.5px solid var(--border)}
+.sidebar-section{padding:8px 0 4px;border-bottom:0.5px solid var(--border)}
 .sidebar-section:last-child{border:none}
-.sidebar-label{padding:6px 10px 3px;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase}
-.nav-item{display:block;width:100%;padding:9px 10px;font-size:12px;font-weight:500;font-family:var(--font);color:var(--text2);background:none;border:none;cursor:pointer;text-align:left;border-left:3px solid transparent;transition:all 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.sidebar-label{padding:8px 12px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.5px}
+.nav-item{display:block;width:100%;padding:11px 12px;font-size:13px;font-weight:500;font-family:var(--font);color:var(--text2);background:none;border:none;cursor:pointer;text-align:left;border-left:3px solid transparent;transition:all 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
 .nav-item:active{background:var(--surface2)}
 .nav-item.active{color:var(--green);border-left-color:var(--green);background:var(--green-light);font-weight:600}
 
@@ -426,33 +426,33 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <!-- Barista section -->
       <div class="sidebar-section">
         <div class="sidebar-label">ทั่วไป</div>
-        <button class="nav-item active" onclick="showTab('dashboard')">ภาพรวม</button>
-        <button class="nav-item" onclick="showTab('stock')">สต็อก</button>
+        <button class="nav-item active" onclick="showTab('dashboard')">📊 ภาพรวม</button>
+        <button class="nav-item" onclick="showTab('stock')">📦 สต็อก</button>
         <button class="nav-item" onclick="showTab('bakery')">🥐 เบเกอรี่</button>
-        <button class="nav-item" onclick="showTab('history')">ประวัติ</button>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">รับ / จ่าย</div>
-        <button class="nav-item" onclick="showTab('receive')">รับของเข้า</button>
-        <button class="nav-item" onclick="showTab('loss')">ของเสีย</button>
-        <button class="nav-item" onclick="showTab('order')">ใบสั่งซื้อ</button>
+        <button class="nav-item" onclick="showTab('receive')">📥 รับของเข้า</button>
+        <button class="nav-item" onclick="showTab('loss')">🗑 ของเสีย</button>
+        <button class="nav-item" onclick="showTab('order')">📋 ใบสั่งซื้อ</button>
       </div>
       <!-- Manager section -->
-      <div class="sidebar-section manager-only" style="display:none" id="sidebar-mgr-setup">
-        <div class="sidebar-label">ตั้งค่า</div>
-        <button class="nav-item manager-only" onclick="showTab('mgr-init')">สต็อกเริ่มต้น</button>
-        <button class="nav-item manager-only" onclick="showTab('settings')">ตั้งค่าระบบ</button>
-      </div>
       <div class="sidebar-section manager-only" style="display:none" id="sidebar-mgr-sales">
-        <div class="sidebar-label">รายได้</div>
-        <button class="nav-item manager-only" onclick="showTab('mgr-revenue')">สรุปรายรับ</button>
-        <button class="nav-item manager-only" onclick="showTab('mgr-sales')">ยอดขายเมนู</button>
+        <div class="sidebar-label">💰 รายได้</div>
+        <button class="nav-item manager-only" onclick="showTab('mgr-revenue')">💵 สรุปรายรับ</button>
+        <button class="nav-item manager-only" onclick="showTab('mgr-sales')">☕ ยอดขายเมนู</button>
+        <button class="nav-item manager-only" onclick="showTab('mgr-cost')">📉 ต้นทุน</button>
+      </div>
+      <div class="sidebar-section manager-only" style="display:none" id="sidebar-mgr-setup">
+        <div class="sidebar-label">⚙️ ตั้งค่า</div>
+        <button class="nav-item manager-only" onclick="showTab('mgr-init')">📝 สต็อกเริ่มต้น</button>
+        <button class="nav-item manager-only" onclick="showTab('settings')">⚙️ ตั้งค่าระบบ</button>
+        <button class="nav-item" onclick="showTab('history')">📜 ประวัติ</button>
       </div>
       <div class="sidebar-section manager-only" style="display:none" id="sidebar-mgr-ops">
-        <div class="sidebar-label">วิเคราะห์</div>
-        <button class="nav-item manager-only" onclick="showTab('mgr-summary')">สรุปภาพรวม</button>
-        <button class="nav-item manager-only" onclick="showTab('mgr-cost')">ต้นทุน</button>
-        <button class="nav-item manager-only" onclick="showTab('mgr-approve')">อนุมัติ</button>
+        <div class="sidebar-label">📊 อื่นๆ</div>
+        <button class="nav-item manager-only" onclick="showTab('mgr-summary')">📊 สรุปภาพรวม</button>
+        <button class="nav-item manager-only" onclick="showTab('mgr-approve')">✅ อนุมัติ</button>
       </div>
     </div>
     <div class="content" id="main-content"></div>
