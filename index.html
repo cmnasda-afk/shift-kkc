@@ -2979,8 +2979,8 @@ function openReceiveDrawer(name,unit){
   document.getElementById('dr-qty').value=1;
   const drDateInp=document.getElementById('dr-date');
   drDateInp.value=todayStr();
-  if(currentRole==='manager'){drDateInp.removeAttribute('disabled');drDateInp.max=todayStr();}
-  else{drDateInp.setAttribute('disabled','true');}
+  drDateInp.removeAttribute('disabled');
+  drDateInp.max=todayStr();
   document.getElementById('dr-exp').value=e?.expDate&&e.expDate!=='NO_EXP'?e.expDate:'';
   document.getElementById('dr-supplier').value='';
   document.getElementById('dr-price').value='';
@@ -3010,7 +3010,7 @@ async function saveReceiveEntry(){
   const qty=parseFloat(rawRecvQty)||0;
   if(qty<=0){btn.disabled=false;btn.textContent='บันทึกรับของ';toast('กรุณาใส่จำนวนที่ถูกต้อง');return;}
   const recvDateRaw=document.getElementById('dr-date').value;
-  const recvDate=(currentRole==='manager'&&recvDateRaw)?recvDateRaw:todayStr();
+  const recvDate=recvDateRaw||todayStr();
   const expDate=document.getElementById('dr-exp').value;
   const supplier=document.getElementById('dr-supplier').value.trim();
   const priceTotal=parseFloat(document.getElementById('dr-price').value)||0;
