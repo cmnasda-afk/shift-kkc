@@ -2748,8 +2748,24 @@ function saveAllStockCheck(){
     count++;
   });
   if(count){
-    saveEntries();
+    // ลบ entries เก่าเกิน 500 รายการ ป้องกัน localStorage เต็ม
+    if(entries.length>500){entries=entries.slice(0,500);}
+    try{
+      saveEntries();
+    }catch(e){
+      alert('บันทึกไม่ได้ — localStorage อาจเต็ม\nลองลบรูปถ่ายเก่าหรือประวัติ');
+      return;
+    }
     toast('บันทึก '+count+' รายการสำเร็จ ✓');
+    // auto push ไป Google Sheet
+    if(settings.scriptUrl){
+      toast('กำลัง sync...');
+      const lbn=latestByName();
+      const toPush=Object.values(lbn).slice(0,count);
+      Promise.all(toPush.map(e=>pushToSheets('saveEntry',{entry:e}).catch(()=>{}))).then(()=>{
+        toast('บันทึก + sync '+count+' รายการ ✓');
+      });
+    }
     showTab('stock');
   } else {
     toast('กรุณากรอกอย่างน้อย 1 รายการ');
