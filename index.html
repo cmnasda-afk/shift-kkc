@@ -1210,11 +1210,20 @@ function renderDashboard(){
 // STOCK LIST
 // ══════════════════════════════════════════════════════════
 function getItemHistory(name) {
-  // หายอดรอบก่อนหน้า (entry ก่อนล่าสุด)
+  // หายอดรอบก่อนหน้า — รวมทุก type ที่มี qty (stock + receive)
   const itemEntries = entries
-    .filter(e => e.name === name && e.type === 'stock')
-    .sort((a, b) => b.ts - a.ts);
+    .filter(e => e.name === name && (e.type === 'stock' || e.type === 'receive') && e.qty !== '' && e.qty !== undefined)
+    .sort((a, b) => (Number(b.ts)||0) - (Number(a.ts)||0));
   return itemEntries;
+}
+function getPrevStock(name) {
+  // หาค่าก่อนหน้าของรายการ — entry ที่ 2 (ไม่ใช่ล่าสุด)
+  const history = getItemHistory(name);
+  if (history.length > 1) return history[1];
+  // ถ้ามีแค่ 1 entry ลองดูจากวันก่อนหน้า
+  const today = todayStr();
+  const older = entries.filter(e => e.name === name && e.type === 'stock' && e.date && e.date < today).sort((a, b) => (Number(b.ts)||0) - (Number(a.ts)||0));
+  return older.length ? older[0] : null;
 }
 
 function getLastReceive(name) {
@@ -1254,8 +1263,7 @@ function renderStock(){
 
     cat.items.forEach(item => {
       const cur = lbn[item.name]; // ยอดล่าสุด
-      const history = getItemHistory(item.name);
-      const prev = history.length > 1 ? history[1] : null; // รอบก่อนหน้า
+      const prev = getPrevStock(item.name); // รอบก่อนหน้า
       const lastRecv = getLastReceive(item.name);
 
       const ms = minStock[item.name] || {min:0};
@@ -3719,7 +3727,7 @@ function buildStockCSVBlob(){
   getAllCats().forEach(cat=>cat.items.forEach(item=>{
     const e=lbn[item.name]||{};
     const history=getItemHistory(item.name);
-    const prev=history.length>1?history[1]:null;
+    const prev=getPrevStock(item.name);
     const prevQty=prev?prev.qty:'';
     const curQty=e.qty!==undefined&&e.qty!==''?e.qty:'';
     const diff=prevQty!==''&&curQty!==''?(parseFloat(curQty)-parseFloat(prevQty)):'';
@@ -3745,7 +3753,7 @@ function buildStockHTMLBlob(){
     cat.items.forEach(item=>{
       const e=lbn[item.name]||{};
       const history=getItemHistory(item.name);
-      const prev=history.length>1?history[1]:null;
+      const prev=getPrevStock(item.name);
       const pq=prev?prev.qty:'—';
       const cq=e.qty!==undefined&&e.qty!==''?e.qty:'—';
       const diff=prev&&e.qty!==undefined&&e.qty!==''?(parseFloat(e.qty)-parseFloat(prev.qty)):null;
@@ -4968,7 +4976,7 @@ function exportCSV(){
   getAllCats().forEach(cat=>cat.items.forEach(item=>{
     const e=lbn[item.name]||{};
     const history=getItemHistory(item.name);
-    const prev=history.length>1?history[1]:null;
+    const prev=getPrevStock(item.name);
     const prevQty=prev?parseFloat(prev.qty):'';
     const curQty=e.qty!==undefined&&e.qty!==''?parseFloat(e.qty):'';
     const diff=prevQty!==''&&curQty!==''?(curQty-prevQty):'';
@@ -5020,7 +5028,7 @@ function exportStockPDF(){
     cat.items.forEach(item=>{
       const e=lbn[item.name]||{};
       const history=getItemHistory(item.name);
-      const prev=history.length>1?history[1]:null;
+      const prev=getPrevStock(item.name);
       const prevQty=prev?prev.qty:'—';
       const curQty=e.qty!==undefined&&e.qty!==''?e.qty:'—';
       const diff=prev&&e.qty!==undefined&&e.qty!==''?(parseFloat(e.qty)-parseFloat(prev.qty)):null;
