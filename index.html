@@ -3132,9 +3132,15 @@ function renderWithdraw(){
     html+='</optgroup>';
   });
   html+='</select></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">'
     +'<div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">จำนวน</div>'
     +'<input type="number" id="wd-qty" placeholder="0" min="0.5" step="0.5" style="width:100%;padding:10px;border:1px solid var(--border2);border-radius:var(--r);font-size:16px;font-weight:700;font-family:var(--mono);text-align:center"></div>'
+    +'<div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">หน่วย</div>'
+    +'<select id="wd-unit" style="width:100%;padding:10px;border:1px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:var(--font);background:#fff">'
+    +'<option value="ชิ้น">ชิ้น</option><option value="ขวด">ขวด</option><option value="ถุง">ถุง</option><option value="ลูก">ลูก</option>'
+    +'<option value="กรัม">กรัม</option><option value="kg">kg</option><option value="แพ็ค">แพ็ค</option><option value="กล่อง">กล่อง</option>'
+    +'<option value="แกลอน">แกลอน</option><option value="กระป๋อง">กระป๋อง</option><option value="ใบ">ใบ</option><option value="อัน">อัน</option>'
+    +'</select></div>'
     +'<div><div style="font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600">วันที่</div>'
     +'<input type="date" id="wd-date" value="'+today+'" max="'+today+'" style="width:100%;padding:10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font)"></div>'
     +'</div>'
@@ -3178,7 +3184,7 @@ function saveWithdraw(){
   const sel=document.getElementById('wd-item');
   const name=sel.value;
   if(!name){toast('กรุณาเลือกรายการ');return;}
-  const unit=sel.selectedOptions[0]?.dataset?.unit||'';
+  const unit=document.getElementById('wd-unit')?.value||sel.selectedOptions[0]?.dataset?.unit||'ชิ้น';
   const qty=parseFloat(document.getElementById('wd-qty').value)||0;
   if(qty<=0){toast('กรุณาใส่จำนวน');return;}
   const date=document.getElementById('wd-date').value||todayStr();
