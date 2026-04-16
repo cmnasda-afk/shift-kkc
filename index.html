@@ -5600,23 +5600,28 @@ function sendSummaryTelegram(date){
   if(!token||!chatId){toast('ยังไม่ได้ตั้งค่า Telegram — ไปที่ Manager → ตั้งค่า');return;}
   const msg=buildRevenueSummaryText(date);
   const r=revenueLog[date]||{};
-  const allPhotos=[...(r.cashBillPhotos||[]),...(r.bankDepositPhotos||[])];
-  if(r.bankDepositPhoto) allPhotos.push(r.bankDepositPhoto);
+  const morningPhotos=r.morningCashPhotos||[];
+  const eveningPhotos=r.cashBillPhotos||[];
+  const depositPhotos=r.bankDepositPhotos||[];
+  const oldDeposit=r.bankDepositPhoto?[r.bankDepositPhoto]:[];
+  const allPhotos=[...morningPhotos,...eveningPhotos,...depositPhotos,...oldDeposit];
   const photoCount=allPhotos.length;
-  const previewNote=photoCount?'\n\n📷 จะส่งรูปหลักฐาน '+photoCount+' รูปด้วย':'';
+  const previewNote=photoCount?'\n\n📷 จะส่งรูป '+photoCount+' รูปด้วย (เช้า '+morningPhotos.length+' + เย็น '+eveningPhotos.length+' + นำออก '+(depositPhotos.length+oldDeposit.length)+')':'';
   _showConfirmSend('🌙 ยืนยันส่งยอดเย็น',msg+previewNote,()=>{
     toast('กำลังส่ง...');
     sendTgRevenue(msg).then(res=>{
       if(!res?.ok){alert('ส่งข้อความไม่สำเร็จ: '+(res?.description||''));return;}
       if(!allPhotos.length){toast('ส่ง Telegram สำเร็จ ✓');return;}
-      // send photos sequentially
-      let i=0;
-      const captions=['เงินสดคู่บิล','หลักฐานนำเงินออก'];
+      let i=0,sent=0;
       function sendNext(){
-        if(i>=allPhotos.length){toast('ส่ง Telegram + '+allPhotos.length+' รูป สำเร็จ ✓');return;}
-        const cbpLen=(r.cashBillPhotos||[]).length;
-        const cap=i<cbpLen?'📸 เงินสดคู่บิล ('+(i+1)+')':'🏦 หลักฐานนำเงินออก';
-        sendTgRevenuePhoto(allPhotos[i],cap).then(()=>{i++;sendNext();}).catch(()=>{toast('ส่งรูปบางรูปไม่สำเร็จ');});
+        if(i>=allPhotos.length){toast('ส่ง Telegram + '+sent+'/'+allPhotos.length+' รูป สำเร็จ ✓');return;}
+        const mLen=morningPhotos.length;
+        const eLen=eveningPhotos.length;
+        let cap='📸 รูป';
+        if(i<mLen) cap='☀️ เงินเช้า ('+(i+1)+')';
+        else if(i<mLen+eLen) cap='🌙 เงินเย็น ('+(i-mLen+1)+')';
+        else cap='🏦 หลักฐานนำเงินออก';
+        sendTgRevenuePhoto(allPhotos[i],cap).then(()=>{sent++;i++;sendNext();}).catch(()=>{i++;sendNext();}); // ส่งไม่ได้ก็ข้ามไปรูปถัดไป
       }
       sendNext();
     }).catch(()=>alert('ส่งไม่สำเร็จ'));
