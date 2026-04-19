@@ -5640,28 +5640,41 @@ function copySummaryText(date){
 
 // ═══ Shared photo overlay: วันเวลา + ที่อยู่จริง (reverse geocode) มุมขวาล่าง ═══
 function _processPhoto(file,callback){
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const maxW=800;let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-      // get location then draw overlay
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(pos=>{
-          _reverseGeocode(pos.coords.latitude,pos.coords.longitude).then(addr=>{
-            _drawPhotoOverlay(ctx,w,h,addr);callback(c);
-          });
-        },()=>{
-          _drawPhotoOverlay(ctx,w,h,['ไม่สามารถระบุตำแหน่งได้']);callback(c);
-        },{timeout:10000});
-      } else {
-        _drawPhotoOverlay(ctx,w,h,['ไม่รองรับ GPS']);callback(c);
-      }
-    };img.src=e.target.result;
-  };reader.readAsDataURL(file);
+  try{
+    const reader=new FileReader();
+    reader.onerror=function(){alert('อ่านไฟล์ไม่ได้');};
+    reader.onload=function(e){
+      const img=new Image();
+      img.onerror=function(){alert('โหลดรูปไม่ได้');};
+      img.onload=function(){
+        try{
+          const maxW=800;let w=img.width,h=img.height;
+          if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+          const c=document.createElement('canvas');c.width=w;c.height=h;
+          const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
+
+          function finishWithOverlay(lines){
+            try{_drawPhotoOverlay(ctx,w,h,lines);}catch(ex){}
+            try{callback(c);}catch(ex){alert('บันทึกรูปไม่สำเร็จ: '+ex.message);}
+          }
+
+          if(navigator.geolocation){
+            navigator.geolocation.getCurrentPosition(function(pos){
+              _reverseGeocode(pos.coords.latitude,pos.coords.longitude)
+                .then(function(addr){finishWithOverlay(addr);})
+                .catch(function(){finishWithOverlay(['ตำแหน่ง: '+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5)]);});
+            },function(){
+              finishWithOverlay(['ไม่สามารถระบุตำแหน่งได้']);
+            },{timeout:5000});
+          } else {
+            finishWithOverlay([]);
+          }
+        }catch(ex){alert('ประมวลผลรูปไม่ได้: '+ex.message);}
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }catch(ex){alert('ถ่ายรูปไม่สำเร็จ: '+ex.message);}
 }
 function _reverseGeocode(lat,lng){
   return fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&accept-language=th&zoom=18')
