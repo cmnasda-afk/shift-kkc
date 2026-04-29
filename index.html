@@ -415,9 +415,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div id="staff-list-buttons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
     <div class="field">
       <label class="field-label">เพิ่มชื่อใหม่</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" class="field-input" id="staff-new-name" placeholder="ชื่อพนักงาน" style="flex:1">
-        <button class="btn-primary" onclick="addStaffFromPicker()" style="padding:0 18px">เพิ่ม</button>
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <input type="text" class="field-input" id="staff-new-name" placeholder="ชื่อพนักงาน" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')addStaffFromPicker()">
+        <button onclick="addStaffFromPicker()" style="flex:0 0 auto;width:auto;padding:0 22px;background:var(--green);color:var(--black);border:none;border-radius:var(--r);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;white-space:nowrap">เพิ่ม</button>
       </div>
     </div>
   </div>
