@@ -399,6 +399,32 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <!-- ══════════════════════════════════════════════════════ -->
+<!-- OVERLAY: เลือกชื่อพนักงาน                              -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="overlay" id="staff-picker">
+<div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title">เลือกชื่อพนักงาน</div>
+    <button class="drawer-close" onclick="closeStaffPicker()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div style="background:var(--surface2);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.7">
+      ระบุว่าใครเป็นคนใช้งานเครื่องนี้ ชื่อจะถูกบันทึกในทุกรายการที่ส่งเข้า Sheet
+    </div>
+    <div id="staff-list-buttons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <div class="field">
+      <label class="field-label">เพิ่มชื่อใหม่</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" class="field-input" id="staff-new-name" placeholder="ชื่อพนักงาน" style="flex:1">
+        <button class="btn-primary" onclick="addStaffFromPicker()" style="padding:0 18px">เพิ่ม</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
 <!-- SCREEN: MAIN (Barista + Manager)                       -->
 <!-- ══════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-main">
@@ -409,6 +435,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <p id="topbar-sub"></p>
     </div>
     <div class="topbar-actions">
+      <button class="icon-btn" onclick="openStaffPicker()" id="staff-badge" style="font-size:11px" title="เปลี่ยนชื่อพนักงาน">👤 —</button>
       <button class="icon-btn" onclick="toggleTgTestMode()" style="font-size:11px" title="โหมดเทส Telegram">🧪</button>
       <span id="tg-test-badge" class="hidden" style="position:fixed;top:0;left:0;right:0;background:#ff9800;color:#fff;text-align:center;font-size:11px;font-weight:700;padding:2px 0;z-index:9998">โหมดเทส — ไม่ส่ง Telegram จริง</span>
       <button class="icon-btn" onclick="syncNow()" id="sync-btn">↻ ซิงค์</button>
@@ -662,7 +689,9 @@ const LS = {
   history:'shiftv3_history', pin:'shiftv3_pin', staffPin:'shiftv3_staffpin',
   itemPrices:'shiftv3_itemprices', bakery:'shiftv3_bakery',
   menuPrices:'shiftv3_menuprices',
-  customMenus:'shiftv3_custommenus'
+  customMenus:'shiftv3_custommenus',
+  staffList:'shiftv3_stafflist', currentStaff:'shiftv3_currentstaff',
+  lastSyncTs:'shiftv3_lastsync'
 };
 
 const TG_DEFAULTS={token:'8612555113:AAFl5hG68Tjoj01b01si-YWL8M6iPw_SQjI',chatId:'-1003775060614',stockTopicId:'42',revenueTopicId:'5',financeChatId:'-1003819730144',financeTopicId:'9'};
@@ -684,6 +713,7 @@ const DEFAULT_BAKERY=[
 ];
 let entries=[], customItems=[], settings={}, minStock={}, historyData={};
 let itemPrices={}, bakeryItems=[], menuPriceOverrides={}, customMenus=[];
+let staffList=[], currentStaff='';
 let currentRole='', currentTab='dashboard', editId=null;
 let selectedStatus='ok', selectedLossReason='', noExp=false;
 let activeDrawerItem=null;
@@ -701,7 +731,11 @@ function load(){
   else{const names=new Set(bakeryItems.map(b=>b.name));DEFAULT_BAKERY.forEach(d=>{if(!names.has(d.name)){bakeryItems.push(d);names.add(d.name);}});lsSave(LS.bakery,bakeryItems);}
   try{menuPriceOverrides=JSON.parse(localStorage.getItem(LS.menuPrices)||'{}')}catch(e){menuPriceOverrides={}}
   try{customMenus=JSON.parse(localStorage.getItem(LS.customMenus)||'[]')}catch(e){customMenus=[]}
+  try{staffList=JSON.parse(localStorage.getItem(LS.staffList)||'[]')}catch(e){staffList=[]}
+  try{currentStaff=localStorage.getItem(LS.currentStaff)||''}catch(e){currentStaff=''}
 }
+function getCurrentStaff(){return currentStaff||localStorage.getItem(LS.currentStaff)||''}
+function saveStaffList(){lsSave(LS.staffList,staffList)}
 function saveEntries(){lsSave(LS.entries,entries)}
 function saveCustom(){lsSave(LS.custom,customItems)}
 function saveSettings(){lsSave(LS.settings,settings)}
@@ -870,6 +904,7 @@ function goLogin(){
   currentRole='';
   showScreen('login');
   clearInterval(window._countdownTimer);
+  stopPolling();
   history.pushState({page:'login'},'','');
   setTimeout(initLoginSummary,50);
 }
@@ -878,11 +913,16 @@ function loginAs(role){
   currentRole=role;
   setupMainScreen();
   showScreen('main');
+  updateStaffBadge();
   const hasData=entries.length>0;
   const startTab=role==='manager'?(hasData?'mgr-summary':'mgr-init'):'dashboard';
   showTab(startTab);
   startCountdown();
   history.pushState({page:'main',tab:startTab},'','');
+  // pull ข้อมูลล่าสุดจาก Sheet ทันที + เริ่ม polling
+  startAutoSync();
+  startPolling(30000);
+  ensureStaffSelected();
 }
 
 function setupMainScreen(){
@@ -2191,7 +2231,8 @@ function deductStockFromSales(date){
       qty:newQty.toFixed(2),status:newStatus,
       expDate:cur.expDate||'',
       note:`หักจากยอดขาย ${date} (−${used>=1?used.toFixed(1):(used*1000).toFixed(0)+(cur.unit==='ลิตร'?'ml':'g')})`,
-      date:date,ts:Date.now(),type:'stock'
+      date:date,ts:Date.now(),type:'stock',
+      staffName:getCurrentStaff()||'auto-deduct'
     };
     entries.unshift(entry);
     deducted++;
@@ -2336,7 +2377,8 @@ function saveInitStock(date){
       note:'บันทึกสต็อกเริ่มต้น',
       date,
       ts:ts+(saved), // offset เล็กน้อยเพื่อไม่ให้ ts ซ้ำ
-      type:'stock'
+      type:'stock',
+      staffName:getCurrentStaff()
     };
     entries.push(entry);
     saved++;
@@ -2753,7 +2795,7 @@ function saveAllStockCheck(){
       if(qty<=0) status='out';
       else if(qty<=minVal) status='low';
     }
-    entries.push({name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:''});
+    entries.push({name,unit,qty:String(qty),status,type:'stock',date:todayStr(),ts:Date.now(),note:'',staffName:getCurrentStaff()});
     count++;
   });
   if(count){
@@ -2896,7 +2938,8 @@ async function saveStockEntry(){
   const entry={
     id:editId||genId(),name:activeDrawerItem.name,unit:activeDrawerItem.unit,
     qty,expDate,status:selectedStatus,note,
-    date:entryDate,ts:entryTs,type:'stock'
+    date:entryDate,ts:entryTs,type:'stock',
+    staffName:getCurrentStaff()
   };
   if(editId)entries=entries.map(e=>e.id===editId?entry:e);
   else entries.unshift(entry);
@@ -3049,7 +3092,8 @@ async function saveReceiveEntry(){
     id:genId(),name:activeDrawerItem.name,unit:activeDrawerItem.unit,
     qty,recvDate,expDate,supplier,priceTotal:priceTotal||'',pricePerUnit,note,
     photos: Object.fromEntries(Object.entries(recvPhotos).filter(([k,v])=>v)),
-    status:'ok',date:recvDate,ts:recvTs,type:'receive'
+    status:'ok',date:recvDate,ts:recvTs,type:'receive',
+    staffName:getCurrentStaff()
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
 
@@ -3058,7 +3102,8 @@ async function saveReceiveEntry(){
   const stockEntry={
     id:genId(),name:entry.name,unit:entry.unit,
     qty,expDate,status:'ok',note:`รับเข้า${supplier?' จาก '+supplier:''}`,
-    recvDate,date:todayStr(),ts:Date.now()+1,type:'stock'
+    recvDate,date:todayStr(),ts:Date.now()+1,type:'stock',
+    staffName:getCurrentStaff()
   };
   entries.unshift(stockEntry);saveEntries();
 
@@ -3250,7 +3295,8 @@ async function saveLossEntry(){
   const entry={
     id:genId(),name:activeDrawerItem.name,unit:cur?.unit||'',
     qty,lossReason:selectedLossReason,note,
-    date:lossDate,ts:lossTs,type:'loss',status:'ok'
+    date:lossDate,ts:lossTs,type:'loss',status:'ok',
+    staffName:getCurrentStaff()
   };
   entries.unshift(entry);saveEntries();addHistory(entry);
   // auto-notify Telegram
@@ -4047,57 +4093,155 @@ async function pushAllToSheet(){
   }
 }
 
-async function syncNow() {
-  if (!settings.scriptUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheets URL'); return; }
-  const btn = document.getElementById('sync-btn');
-  btn.textContent = '↻ ...';
+// core sync (silent by default) — ใช้ getAll endpoint ใหม่ ลด round-trip ครึ่งหนึ่ง
+async function pullFromSheets({verbose=false, timeout=20000}={}) {
+  if (!settings.scriptUrl) {
+    if (verbose) toast('ยังไม่ได้ตั้งค่า Google Sheets URL');
+    return {ok:false, updated:0, received:0};
+  }
   let updated=0, received=0;
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),timeout);
   try {
-    const syncCtrl=new AbortController();
-    const syncTimer=setTimeout(()=>syncCtrl.abort(),30000);
-    const rb = await fetch(`${settings.scriptUrl}?action=getBalance`,{signal:syncCtrl.signal}).then(r => r.json());
-    console.log('sync getBalance response:',rb);
-    if (rb.balance && rb.balance.length) {
-      received=rb.balance.length;
-      rb.balance.forEach(b => {
+    const r = await fetch(`${settings.scriptUrl}?action=getAll`,{signal:ctrl.signal}).then(r => r.json());
+    clearTimeout(timer);
+    if (r.balance && r.balance.length) {
+      received=r.balance.length;
+      r.balance.forEach(b => {
         if (!b.name) return;
         if (b.currentQty===undefined||b.currentQty===null||b.currentQty==='') return;
-        // ลบ entries เก่าของชื่อนี้ทั้งหมด (stock) แล้วใส่ตัวใหม่
         entries = entries.filter(e => !(e.name === b.name && e.type === 'stock'));
         entries.unshift({
           id: 'sync_' + String(b.name).replace(/\W/g,'_') + '_' + Date.now(),
           name: b.name, unit: b.unit||'',
           qty: String(b.currentQty), status: b.currentStatus || 'ok',
-          expDate: b.expDate || '', note: b.note || '',
-          recvDate: b.lastRecvDate || '', supplier: b.lastRecvSupplier || '',
+          expDate: '', note: '',
+          recvDate: '', supplier: '',
           date: b.lastCheckDate || todayStr(),
-          ts: Date.now(), type: 'stock'
+          ts: Date.now(), type: 'stock',
+          staffName: b.lastStaff || ''
         });
         updated++;
       });
       saveEntries();
     }
-
-    // ดึง custom items
-    const rc = await fetch(`${settings.scriptUrl}?action=getCustomItems`,{signal:syncCtrl.signal}).then(r => r.json());
-    if (rc.items&&rc.items.length) {
-      // merge: เพิ่มจาก Sheet ที่ยังไม่มีใน local (ไม่ลบของ local)
-      rc.items.forEach(si=>{
+    if (r.items && r.items.length) {
+      r.items.forEach(si=>{
         if(!customItems.find(li=>li.name===si.name&&li.cat===si.cat)){
           customItems.push(si);
         }
       });
       saveCustom();
     }
-
-    clearTimeout(syncTimer);
-    toast('ซิงค์สำเร็จ '+updated+'/'+received+' รายการ ✓',3500);
-    renderContent(currentTab);
+    lsSave(LS.lastSyncTs, Date.now());
+    if (verbose) toast('ซิงค์สำเร็จ '+updated+'/'+received+' รายการ ✓',3500);
+    if (typeof renderContent === 'function' && currentTab) renderContent(currentTab);
+    return {ok:true, updated, received};
   } catch(e) {
-    clearTimeout(syncTimer);
-    toast('ซิงค์ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต');
+    clearTimeout(timer);
+    if (verbose) toast('ซิงค์ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต');
+    return {ok:false, updated:0, received:0};
   }
-  btn.textContent = '↻ ซิงค์';
+}
+
+async function syncNow() {
+  if (!settings.scriptUrl) { toast('ยังไม่ได้ตั้งค่า Google Sheets URL'); return; }
+  const btn = document.getElementById('sync-btn');
+  if (btn) btn.textContent = '↻ ...';
+  await pullFromSheets({verbose:true, timeout:30000});
+  if (btn) btn.textContent = '↻ ซิงค์';
+}
+
+// ══════════════════════════════════════════════════════════
+// AUTO-PULL & POLLING (ทุกเครื่องเห็นข้อมูลเดียวกัน)
+// ══════════════════════════════════════════════════════════
+let _pollTimer=null;
+
+function startAutoSync(){
+  // pull ทันทีตอนเปิดแอป (silent — ไม่กวนผู้ใช้)
+  if(settings.scriptUrl) pullFromSheets({verbose:false}).catch(()=>{});
+}
+
+function startPolling(intervalMs=30000){
+  stopPolling();
+  if(!settings.scriptUrl) return;
+  _pollTimer=setInterval(()=>{
+    // ดึงเฉพาะตอนเปิด tab/หน้าจออยู่ (ประหยัด Apps Script quota)
+    if(document.hidden) return;
+    pullFromSheets({verbose:false}).catch(()=>{});
+  }, intervalMs);
+}
+
+function stopPolling(){
+  if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; }
+}
+
+// resume เมื่อกลับมาที่แท็บ
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && settings.scriptUrl){
+    pullFromSheets({verbose:false}).catch(()=>{});
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// STAFF PICKER (ใครเป็นคนใช้เครื่องนี้)
+// ══════════════════════════════════════════════════════════
+function openStaffPicker(){
+  renderStaffPicker();
+  document.getElementById('staff-picker').classList.add('show');
+}
+function closeStaffPicker(){
+  document.getElementById('staff-picker').classList.remove('show');
+}
+function renderStaffPicker(){
+  const wrap=document.getElementById('staff-list-buttons');
+  if(!wrap) return;
+  if(!staffList.length){
+    wrap.innerHTML='<div style="color:var(--text2);font-size:13px;padding:14px;text-align:center;background:var(--surface);border-radius:var(--r)">ยังไม่มีรายชื่อพนักงาน เพิ่มชื่อด้านล่าง</div>';
+    return;
+  }
+  wrap.innerHTML=staffList.map(name=>{
+    const active=name===currentStaff;
+    const btnStyle=active
+      ? 'flex:1;text-align:left;padding:12px 14px;background:var(--green);color:var(--black);border:none;border-radius:var(--r);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer'
+      : 'flex:1;text-align:left;padding:12px 14px;background:var(--surface);color:var(--text);border:0.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:var(--font);cursor:pointer';
+    return `<div style="display:flex;gap:6px;align-items:center">
+      <button onclick="selectStaff('${escAttr(name)}')" style="${btnStyle}">${active?'✓ ':''}${esc(name)}</button>
+      <button onclick="removeStaff('${escAttr(name)}')" style="padding:12px;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r);color:#e57373;cursor:pointer;font-family:var(--font)" title="ลบ">✕</button>
+    </div>`;
+  }).join('');
+}
+function selectStaff(name){
+  currentStaff=name;
+  lsSave(LS.currentStaff,name);
+  updateStaffBadge();
+  closeStaffPicker();
+  toast('สวัสดีคุณ '+name+' 👋');
+}
+function addStaffFromPicker(){
+  const inp=document.getElementById('staff-new-name');
+  const name=(inp?.value||'').trim();
+  if(!name) return;
+  if(staffList.includes(name)){toast('มีชื่อนี้อยู่แล้ว');return;}
+  staffList.push(name); saveStaffList();
+  inp.value='';
+  selectStaff(name);
+}
+function removeStaff(name){
+  if(!confirm('ลบ "'+name+'" จากรายชื่อ?')) return;
+  staffList=staffList.filter(n=>n!==name);
+  saveStaffList();
+  if(currentStaff===name){currentStaff='';lsSave(LS.currentStaff,'');updateStaffBadge();}
+  renderStaffPicker();
+}
+function updateStaffBadge(){
+  const el=document.getElementById('staff-badge');
+  if(el) el.textContent=currentStaff?('👤 '+currentStaff):'👤 เลือกชื่อ';
+}
+function ensureStaffSelected(){
+  if(!currentStaff){
+    setTimeout(()=>openStaffPicker(),300);
+  }
 }
 
 // ══════════════════════════════════════════════════════════

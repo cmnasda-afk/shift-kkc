@@ -1,8 +1,14 @@
-// SHIFT KKC — Google Sheets Sync Backend v2
+// SHIFT KKC — Google Sheets Sync Backend v3
 // วางโค้ดนี้ใน Google Apps Script (Extensions → Apps Script)
 // Deploy as Web App → Execute as: Me, Who has access: Anyone
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
+
+// headers ต้องตรงกัน — เพิ่ม staffName ตอนท้าย
+const ENTRY_HEADERS = ['id','type','date','ts','name','unit','qty','status','expDate',
+  'recvDate','supplier','note','priceTotal','pricePerUnit','updatedAt','staffName'];
+
+const BALANCE_HEADERS = ['name','unit','qty','status','lastCheckDate','lastUpdate','lastStaff'];
 
 function getOrCreateSheet(name, headers) {
   let sh = SS.getSheetByName(name);
@@ -10,6 +16,13 @@ function getOrCreateSheet(name, headers) {
     sh = SS.insertSheet(name);
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
     sh.setFrozenRows(1);
+    return sh;
+  }
+  // auto-extend headers ถ้า column ใหม่ถูกเพิ่มในโค้ด
+  const lastCol = sh.getLastColumn();
+  if (lastCol < headers.length) {
+    sh.getRange(1, lastCol + 1, 1, headers.length - lastCol)
+      .setValues([headers.slice(lastCol)]).setFontWeight('bold');
   }
   return sh;
 }
@@ -32,6 +45,8 @@ function doGet(e) {
     const action = e.parameter.action;
     if (action === 'getBalance') return getBalance();
     if (action === 'getCustomItems') return getCustomItems();
+    if (action === 'getEntries') return getEntries(e.parameter.since);
+    if (action === 'getAll') return getAll();
     return out({ ok: false, error: 'unknown action' });
   } catch (err) {
     return out({ ok: false, error: String(err) });
@@ -43,61 +58,46 @@ function out(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── Helper: get month sheet name ───
 function getMonthSheetName(dateStr) {
   if (!dateStr) {
     const now = new Date();
     return Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM');
   }
-  // dateStr = "2026-04-15" → "2026-04"
   return dateStr.substring(0, 7);
 }
 
-// ─── Save entry to monthly sheet + Balance sheet ───
+function entryRow(entry) {
+  return [
+    entry.id || '', entry.type || 'stock', entry.date || '',
+    entry.ts || Date.now(), entry.name || '', entry.unit || '',
+    entry.qty || '', entry.status || '', entry.expDate || '',
+    entry.recvDate || '', entry.supplier || '', entry.note || '',
+    entry.priceTotal || '', entry.pricePerUnit || '',
+    new Date().toISOString(), entry.staffName || ''
+  ];
+}
+
 function saveEntry(entry) {
   if (!entry || !entry.name) return out({ ok: false, error: 'no entry' });
 
-  const headers = ['id','type','date','ts','name','unit','qty','status','expDate',
-    'recvDate','supplier','note','priceTotal','pricePerUnit','updatedAt'];
-
-  // 1. Save to monthly sheet (e.g., "2026-04")
   const monthName = getMonthSheetName(entry.date);
-  const monthSh = getOrCreateSheet(monthName, headers);
-  monthSh.appendRow([
-    entry.id || '', entry.type || 'stock', entry.date || '',
-    entry.ts || Date.now(), entry.name || '', entry.unit || '',
-    entry.qty || '', entry.status || '', entry.expDate || '',
-    entry.recvDate || '', entry.supplier || '', entry.note || '',
-    entry.priceTotal || '', entry.pricePerUnit || '',
-    new Date().toISOString()
-  ]);
+  const monthSh = getOrCreateSheet(monthName, ENTRY_HEADERS);
+  monthSh.appendRow(entryRow(entry));
 
-  // 2. Update Balance sheet (latest qty per item)
   updateBalance(entry);
 
-  // 3. Also save to Entries (backward compat)
-  const sh = getOrCreateSheet('Entries', headers);
-  sh.appendRow([
-    entry.id || '', entry.type || 'stock', entry.date || '',
-    entry.ts || Date.now(), entry.name || '', entry.unit || '',
-    entry.qty || '', entry.status || '', entry.expDate || '',
-    entry.recvDate || '', entry.supplier || '', entry.note || '',
-    entry.priceTotal || '', entry.pricePerUnit || '',
-    new Date().toISOString()
-  ]);
+  const sh = getOrCreateSheet('Entries', ENTRY_HEADERS);
+  sh.appendRow(entryRow(entry));
 
   return out({ ok: true });
 }
 
-// ─── Update Balance sheet (สรุปยอดล่าสุดต่อรายการ) ───
 function updateBalance(entry) {
   if (!entry.name || entry.type === 'receive') return;
 
-  const headers = ['name','unit','qty','status','lastCheckDate','lastUpdate'];
-  const sh = getOrCreateSheet('Balance', headers);
+  const sh = getOrCreateSheet('Balance', BALANCE_HEADERS);
   const data = sh.getDataRange().getValues();
 
-  // find existing row for this item
   let foundRow = -1;
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === entry.name) { foundRow = i + 1; break; }
@@ -106,14 +106,12 @@ function updateBalance(entry) {
   const rowData = [
     entry.name, entry.unit || '', entry.qty || '',
     entry.status || 'ok', entry.date || '',
-    new Date().toISOString()
+    new Date().toISOString(), entry.staffName || ''
   ];
 
   if (foundRow > 0) {
-    // update existing row
-    sh.getRange(foundRow, 1, 1, headers.length).setValues([rowData]);
+    sh.getRange(foundRow, 1, 1, BALANCE_HEADERS.length).setValues([rowData]);
   } else {
-    // append new row
     sh.appendRow(rowData);
   }
 }
@@ -125,7 +123,6 @@ function saveReceive(receive) {
 function saveCustomItem(item) {
   if (!item || !item.name) return out({ ok: false, error: 'no item' });
   const sh = getOrCreateSheet('CustomItems', ['cat','name','unit','addedAt']);
-  // check duplicate
   const data = sh.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][1] === item.name && data[i][0] === (item.cat || '')) return out({ ok: true });
@@ -134,17 +131,14 @@ function saveCustomItem(item) {
   return out({ ok: true });
 }
 
-// ─── Get latest balance per item (from Balance sheet) ───
 function getBalance() {
   const sh = SS.getSheetByName('Balance');
-  if (!sh) return getBalanceFallback(); // fallback to old Entries method
+  if (!sh) return getBalanceFallback();
 
   const data = sh.getDataRange().getValues();
   if (data.length <= 1) return getBalanceFallback();
 
-  const headers = data[0];
   const balance = [];
-
   for (let i = 1; i < data.length; i++) {
     const r = data[i];
     const name = r[0];
@@ -156,14 +150,14 @@ function getBalance() {
       currentQty: String(qty),
       currentStatus: r[3] || 'ok',
       lastCheckDate: r[4] || '',
-      updatedAt: r[5] || ''
+      updatedAt: r[5] || '',
+      lastStaff: r[6] || ''
     });
   }
 
   return out({ ok: true, balance: balance });
 }
 
-// fallback: read from Entries sheet (old method)
 function getBalanceFallback() {
   const sh = SS.getSheetByName('Entries');
   if (!sh) return out({ ok: true, balance: [] });
@@ -189,12 +183,66 @@ function getBalanceFallback() {
         rec.currentStatus = r[idx('status')] || 'ok';
         rec.lastCheckDate = r[idx('date')] || '';
         rec.updatedAt = r[idx('updatedAt')] || '';
+        rec.lastStaff = idx('staffName') >= 0 ? (r[idx('staffName')] || '') : '';
       }
     }
   });
 
   const balance = Object.values(byName).filter(b => b.currentQty !== undefined && b.currentQty !== '');
   return out({ ok: true, balance: balance });
+}
+
+// ─── Get latest entries (newest first), optional since=timestamp ───
+function getEntries(since) {
+  const sh = SS.getSheetByName('Entries');
+  if (!sh) return out({ ok: true, entries: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length <= 1) return out({ ok: true, entries: [] });
+
+  const headers = data[0];
+  const idx = (h) => headers.indexOf(h);
+  const sinceTs = since ? Number(since) : 0;
+
+  const entries = [];
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    const ts = Number(r[idx('ts')]) || 0;
+    if (sinceTs && ts <= sinceTs) continue;
+    const name = r[idx('name')];
+    if (!name) continue;
+    entries.push({
+      id: r[idx('id')] || '',
+      type: r[idx('type')] || 'stock',
+      date: r[idx('date')] || '',
+      ts: ts,
+      name: name,
+      unit: r[idx('unit')] || '',
+      qty: String(r[idx('qty')] || ''),
+      status: r[idx('status')] || 'ok',
+      expDate: r[idx('expDate')] || '',
+      recvDate: r[idx('recvDate')] || '',
+      supplier: r[idx('supplier')] || '',
+      note: r[idx('note')] || '',
+      priceTotal: r[idx('priceTotal')] || '',
+      pricePerUnit: r[idx('pricePerUnit')] || '',
+      staffName: idx('staffName') >= 0 ? (r[idx('staffName')] || '') : ''
+    });
+  }
+  // newest first, cap 500
+  entries.sort((a,b) => b.ts - a.ts);
+  return out({ ok: true, entries: entries.slice(0, 500) });
+}
+
+// ─── Get balance + customItems in one call (ลด round-trip) ───
+function getAll() {
+  const balRes = JSON.parse(getBalance().getContent());
+  const itemsRes = JSON.parse(getCustomItems().getContent());
+  return out({
+    ok: true,
+    balance: balRes.balance || [],
+    items: itemsRes.items || [],
+    serverTs: Date.now()
+  });
 }
 
 function getCustomItems() {
@@ -210,17 +258,10 @@ function getCustomItems() {
 
 // ─── Test function (run manually from editor) ───
 function test_setup() {
-  getOrCreateSheet('Entries', [
-    'id','type','date','ts','name','unit','qty','status','expDate',
-    'recvDate','supplier','note','priceTotal','pricePerUnit','updatedAt'
-  ]);
-  getOrCreateSheet('Balance', ['name','unit','qty','status','lastCheckDate','lastUpdate']);
+  getOrCreateSheet('Entries', ENTRY_HEADERS);
+  getOrCreateSheet('Balance', BALANCE_HEADERS);
   getOrCreateSheet('CustomItems', ['cat','name','unit','addedAt']);
-  // create current month sheet
   const monthName = getMonthSheetName();
-  getOrCreateSheet(monthName, [
-    'id','type','date','ts','name','unit','qty','status','expDate',
-    'recvDate','supplier','note','priceTotal','pricePerUnit','updatedAt'
-  ]);
-  Logger.log('Setup complete. Sheets created: Entries, Balance, CustomItems, ' + monthName);
+  getOrCreateSheet(monthName, ENTRY_HEADERS);
+  Logger.log('Setup complete. Sheets: Entries, Balance, CustomItems, ' + monthName);
 }
